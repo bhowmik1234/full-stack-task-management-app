@@ -19,14 +19,14 @@ export const store = configureStore({
         [dashboardAPI.reducerPath]: dashboardAPI.reducer,
         [wishlistAPI.reducerPath] : wishlistAPI.reducer
     },
-    middleware: (mid) => [
-        ...mid(), 
-        userAPI.middleware, 
-        productAPI.middleware, 
-        orderAPI.middleware, 
-        dashboardAPI.middleware,
-        wishlistAPI.middleware
-    ],
+    middleware: (getDefaultMiddleware) =>
+        getDefaultMiddleware().concat(
+            userAPI.middleware, 
+            productAPI.middleware, 
+            orderAPI.middleware, 
+            dashboardAPI.middleware,
+            wishlistAPI.middleware
+        ),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

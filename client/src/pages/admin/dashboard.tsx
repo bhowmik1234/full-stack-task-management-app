@@ -1,7 +1,7 @@
 // import toast from "react-hot-toast";
 import { BiMaleFemale } from "react-icons/bi";
-import { BsSearch } from "react-icons/bs";
-import { FaRegBell } from "react-icons/fa";
+// import { BsSearch } from "react-icons/bs";
+// import { FaRegBell } from "react-icons/fa";
 import { HiTrendingDown, HiTrendingUp } from "react-icons/hi";
 import AdminSidebar from "../../components/admin/AdminSidebar";
 import { BarChart, DoughnutChart } from "../../components/admin/Charts";
@@ -12,7 +12,7 @@ import { RootState } from "../../redux/store";
 import { CustomError } from "../../types/api-types";
 import toast from "react-hot-toast";
 import { Skeleton } from "../../components/Loader";
-import { useEffect } from "react";
+// import { useEffect } from "react";
 import { getLastMonths } from "../../utils/features";
 
 const { lastSixMonths} = getLastMonths();
@@ -87,7 +87,7 @@ const Dashboard = () => {
                     <h2>Inventory</h2>
 
                     <div>
-                      {stats.categoryCount.map((i, index) => {
+                      {stats.categoryCount.map((i) => {
 
                         const [heading, value] = Object.entries(i)[0];
                         return (

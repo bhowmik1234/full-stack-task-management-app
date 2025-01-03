@@ -6,7 +6,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "../redux/store";
 import { useAddWishListMutation, useDeleteWishListMutation, useMyWishListQuery } from "../redux/api/wishlistAPI";
 import toast from "react-hot-toast";
-import WishList from "../pages/WishList";
+// import WishList from "../pages/WishList";
 
 
 type ProductProps = {
@@ -27,7 +27,7 @@ const ProductCart = ({
 }: ProductProps) => {
   const [isWishlisted, setIsWishlisted] = React.useState(false);
   const { user } = useSelector((state: RootState) => state.userReducer);
-  const { data: wishListData, isLoading} = useMyWishListQuery(user?._id!);
+  const { data: wishListData} = useMyWishListQuery(user?._id!);
 
   // useEffect(()=>{
 
