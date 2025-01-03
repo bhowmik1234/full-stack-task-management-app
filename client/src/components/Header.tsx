@@ -57,7 +57,7 @@ const Header = ({ user }: PropsTypes) => {
           user?._id ? (
             <>
               <button onClick={() => setIsOpen((prev) => !prev)}>
-                <img src={userProfle?.photo} alt="User" />
+                <img src={userProfle?.photo} alt="" />
               </button>
               <dialog open={isOpen} className="user-menu">
                 <div onClick={()=> setIsOpen(false)}className="user-menu__content">

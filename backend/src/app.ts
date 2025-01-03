@@ -21,11 +21,19 @@ config({
     path: "./.env",
 })
 const stripeKey = process.env.STRIPE_KEY || "";
+// cloudinary.config({
+//     cloud_name: "dv1vpvfkg",
+//     api_key: "425872355748933",
+//     api_secret: "XWXjfWfxjjPLKgtCFxxO0sXK0T8",
+//   });
+
+console.log(process.env.CLOUD_NAME)
+
 cloudinary.config({
-    cloud_name: "dv1vpvfkg",
-    api_key: "425872355748933",
-    api_secret: "XWXjfWfxjjPLKgtCFxxO0sXK0T8",
-  });
+    cloud_name: process.env.CLOUD_NAME ,
+    api_key: process.env.CLOUD_API_KEY,
+    api_secret: process.env.CLOUD_API_SECRET,
+});
 
 
 export const stripe = new Stripe(stripeKey);
