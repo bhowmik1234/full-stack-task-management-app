@@ -1,0 +1,86 @@
+.dashboard-app-container {
+  background-color: $secondary-color;
+  padding: 4rem;
+  color: $text-color;
+
+  > section {
+    @include flex(column, center, center, 2rem);
+    height: 100%;
+
+    >h1{
+      color: $text-color;
+    }
+
+    .coupon-form {
+      @include grid(2fr 1fr, 2rem);
+      max-width: 30rem;
+      width: 100%;
+      > input {
+        padding: 1rem;
+        border: 1px solid $text-color;
+        background-color: $primary-color;
+        color: $text-color;
+        outline: none;
+        border-radius: 5px;
+
+      }
+
+      > fieldset {
+        padding: 1rem;
+        border: 1px solid $text-color;
+        border-radius: 5px;
+        @include flex(row, center, center, 0);
+        flex-wrap: wrap;
+        grid-column: 1/3;
+        font-size: 2rem;
+
+        span {
+          font-size: 1rem;
+          font-weight: 300;
+          margin-inline-start: 0.25rem;
+          margin-inline-end: 1rem;
+        }
+      }
+
+      > button {
+        font-weight: 700;
+        font-size: 1.1rem;
+        width: 100%;
+        padding: 1rem;
+        border: none;
+        color: white;
+        cursor: pointer;
+        margin: 2rem 0;
+        border-radius: 10px;
+        grid-column: 1/3;
+        background-color: $second-color;
+      }
+    }
+
+    > code {
+      position: relative;
+      border: 1px solid white;
+      padding: 1rem;
+      font-size: 1.2rem;
+      letter-spacing: 2px;
+      cursor: pointer;
+      &:hover > span {
+        opacity: 1;
+      }
+
+      > span {
+        opacity: 0;
+        @include square(100%);
+        top: 0;
+        left: 0;
+        position: absolute;
+        border-radius: 5px;
+        background-color: rgb(15, 15, 15);
+        color: white;
+        font-weight: bold;
+        font-size: 0.8rem;
+        @include flex;
+      }
+    }
+  }
+}
