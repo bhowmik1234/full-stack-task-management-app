@@ -24,10 +24,10 @@ yarn-debug.log*
 yarn-error.log*
 
 # Ignore build or dist folders (if applicable)
-client/dist/
-client/build/
-backend/dist/
-backend/build/
+# client/dist/
+# client/build/
+# backend/dist/
+# backend/build/
 
 # Ignore temporary files
 *.tmp
