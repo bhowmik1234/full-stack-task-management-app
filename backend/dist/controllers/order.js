@@ -5,7 +5,14 @@ import { invalidateCache, reduceStock } from "../utils/features.js";
 import ErrorHandler from "../utils/utiliy-class.js";
 export const newOrder = TryCatch(async (req, res, next) => {
     const { shippingInfo, orderItems, user, subtotal, tax, shippingCharges, discount, total, } = req.body;
-    if (!shippingInfo || !orderItems || !user || !subtotal || !tax || !total)
+    // subtotal/tax/total are legitimately 0 (e.g. a coupon covering the whole
+    // order), so check for presence rather than truthiness
+    if (!shippingInfo ||
+        !orderItems ||
+        !user ||
+        subtotal == null ||
+        tax == null ||
+        total == null)
         return next(new ErrorHandler("Please Enter All Fields", 400));
     const order = await Order.create({
         shippingInfo,

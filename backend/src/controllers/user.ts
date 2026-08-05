@@ -22,7 +22,7 @@ export const newUser = TryCatch(
     }
 
     if(!_id || !name || !email || !gender || !photo || !dob){
-        next(new ErrorHandler("Please provide all the details", 400));
+        return next(new ErrorHandler("Please provide all the details", 400));
     }
 
     user = await User.create({

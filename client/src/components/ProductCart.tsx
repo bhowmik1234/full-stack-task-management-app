@@ -27,18 +27,17 @@ const ProductCart = ({
 }: ProductProps) => {
   const [isWishlisted, setIsWishlisted] = React.useState(false);
   const { user } = useSelector((state: RootState) => state.userReducer);
-  const { data: wishListData} = useMyWishListQuery(user?._id!);
+  const { data: wishListData} = useMyWishListQuery(user?._id ?? "", {
+    skip: !user?._id,
+  });
 
   // useEffect(()=>{
 
   useEffect(() => {
     if (wishListData) {
-      const found = wishListData.WishList.some(e => e._id === productId);
-      if (found !== isWishlisted) {
-        setIsWishlisted(true);
-      }
+      setIsWishlisted(wishListData.WishList.some(e => e._id === productId));
     }
-  }, [ isWishlisted]);
+  }, [wishListData, productId]);
     
 
   // },[isWishlisted])
@@ -58,15 +57,16 @@ const ProductCart = ({
 
   const handleWishlist = async (e: any) => {
     e.stopPropagation();
+    if (!user?._id) return toast.error("Please login to use your wishlist.");
     try {
       if(!isWishlisted){
-        await addWishList({userId: user?._id!, productId});
-        toast.success("added to cart.");
+        await addWishList({userId: user._id, productId});
+        toast.success("Added to wishlist.");
         setIsWishlisted(true);
       }else{
         setIsWishlisted(false);
-        await deleteWishList({userId: user?._id!, productId});
-        toast.success("Removed from cart.");
+        await deleteWishList({userId: user._id, productId});
+        toast.success("Removed from wishlist.");
       }
     } catch (error) {
       console.log(error);

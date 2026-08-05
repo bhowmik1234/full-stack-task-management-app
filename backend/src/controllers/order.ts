@@ -19,7 +19,16 @@ export const newOrder = TryCatch(
         total,
       } = req.body;
   
-      if (!shippingInfo || !orderItems || !user || !subtotal || !tax || !total)
+      // subtotal/tax/total are legitimately 0 (e.g. a coupon covering the whole
+      // order), so check for presence rather than truthiness
+      if (
+        !shippingInfo ||
+        !orderItems ||
+        !user ||
+        subtotal == null ||
+        tax == null ||
+        total == null
+      )
         return next(new ErrorHandler("Please Enter All Fields", 400));
   
       const order = await Order.create({

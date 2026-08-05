@@ -63,7 +63,7 @@
 // export default WishList;
 
 
-// import React from 'react';
+import { useEffect } from 'react';
 import toast from 'react-hot-toast';
 // import ProductCart from '../components/ProductCart'; // Ensure this path is correct
 import { CartItem } from '../types/types';
@@ -79,12 +79,16 @@ import { Skeleton } from '../components/Loader';
 const WishList = () => {
     const dispatch = useDispatch();
     const { user } = useSelector((state: RootState) => state.userReducer);
-    const { data: wishListData, isLoading, isError, error } = useMyWishListQuery(user?._id!);
+    const { data: wishListData, isLoading, isError, error } = useMyWishListQuery(user?._id ?? "", {
+        skip: !user?._id,
+    });
 
-    if (isError) {
-        const err = error as CustomError;
-        toast.error(err.data.message);
-    }
+    useEffect(() => {
+        if (isError) {
+            const err = error as CustomError;
+            toast.error(err.data.message);
+        }
+    }, [isError, error]);
 
     const addToCartHandler = (cartItem: CartItem) => {
         if (cartItem.stock < 1) {

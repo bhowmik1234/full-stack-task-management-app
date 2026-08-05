@@ -105,7 +105,7 @@ export const updateProduct = TryCatch(async (req, res, next) => {
     if (stock)
         product.stock = stock;
     if (category)
-        product.category = category;
+        product.category = category.toLocaleLowerCase();
     await product.save();
     invalidateCache({
         product: true,
@@ -180,13 +180,14 @@ export const addToWishList = TryCatch(async (req, res, next) => {
     const wish = await WishList.findOne({ userId });
     if (!wish) {
         await WishList.create({ userId, productId: [productId] });
+        invalidateCache({ wishlist: true, userId: String(userId) });
     }
     else {
         const productIds = wish.productId.map(id => id.toString());
         if (!productIds.includes(productId.toString())) {
             wish.productId.push(product._id);
             await wish.save();
-            invalidateCache({ wishlist: true });
+            invalidateCache({ wishlist: true, userId: String(userId) });
         }
     }
     return res.status(200).json({
@@ -196,23 +197,19 @@ export const addToWishList = TryCatch(async (req, res, next) => {
 });
 export const myWishList = TryCatch(async (req, res, next) => {
     const { id } = req.query;
+    const key = `wishlist-${id}`;
     let products;
-    if (myCache.has("wishlist")) {
-        products = JSON.parse(myCache.get("wishlist"));
+    if (myCache.has(key)) {
+        products = JSON.parse(myCache.get(key));
     }
     else {
         const wish = await WishList.findOne({ userId: id });
-        if (!wish) {
-            return res.status(404).json({
-                success: false,
-                message: 'Wishlist not found',
-            });
-        }
-        const productPromises = wish.productId.map(async (productId) => {
+        const productPromises = (wish?.productId ?? []).map(async (productId) => {
             return await Product.findById(productId);
         });
-        products = await Promise.all(productPromises);
-        myCache.set("wishlist", JSON.stringify(products));
+        // a wishlisted product may have been deleted since it was added
+        products = (await Promise.all(productPromises)).filter((p) => p !== null);
+        myCache.set(key, JSON.stringify(products));
     }
     return res.status(200).json({
         success: true,
@@ -231,7 +228,7 @@ export const deleteWishList = TryCatch(async (req, res, next) => {
             message: 'Wishlist not found or product not in wishlist',
         });
     }
-    invalidateCache({ wishlist: true });
+    invalidateCache({ wishlist: true, userId: String(userId) });
     return res.status(200).json({
         success: true,
         message: "Removed from wishlist",

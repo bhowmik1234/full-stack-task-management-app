@@ -37,7 +37,7 @@ export const invalidateCache = ({
     }
 
     if(wishlist){
-      myCache.del("wishlist");
+      myCache.del(`wishlist-${userId}`);
     }
     if (admin) {
       myCache.del([

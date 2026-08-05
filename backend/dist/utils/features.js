@@ -24,7 +24,7 @@ export const invalidateCache = ({ product, order, wishlist, admin, userId, order
         myCache.del(ordersKeys);
     }
     if (wishlist) {
-        myCache.del("wishlist");
+        myCache.del(`wishlist-${userId}`);
     }
     if (admin) {
         myCache.del([

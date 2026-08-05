@@ -11,7 +11,7 @@ export const newUser = TryCatch(async (req, res, next) => {
         });
     }
     if (!_id || !name || !email || !gender || !photo || !dob) {
-        next(new ErrorHandler("Please provide all the details", 400));
+        return next(new ErrorHandler("Please provide all the details", 400));
     }
     user = await User.create({
         name,

@@ -15,11 +15,12 @@ import payementRoute from "./routes/payement.js"
 import dashboardRoute from "./routes/stats.js"
 
 const app = express();
-const PORT = 3000;
 
 config({
     path: "./.env",
 })
+// read after config() so a PORT in .env is picked up; in Docker the real env wins
+const PORT = Number(process.env.PORT) || 3000;
 const stripeKey = process.env.STRIPE_KEY || "";
 // cloudinary.config({
 //     cloud_name: "dv1vpvfkg",
@@ -60,5 +61,5 @@ app.use('/uploads', express.static("uploads"));
 app.use(errorMiddleware);
 
 app.listen(PORT, ()=>{
-    console.log("running on port 3000.");
+    console.log(`running on port ${PORT}.`);
 })

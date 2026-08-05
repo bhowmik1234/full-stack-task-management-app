@@ -62,7 +62,7 @@ const CheckoutForm = () => {
         });
 
         if (error) {
-            setIsProcessing(true);
+            setIsProcessing(false);
             return toast.error(error.message || "something went wrong");
         }
         if (paymentIntent.status === "succeeded") {

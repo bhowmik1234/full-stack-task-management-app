@@ -1,0 +1,7 @@
+node_modules
+dist
+# must stay ignored: Vite would load it and override the build args
+.env
+.env.*
+*.log
+.DS_Store

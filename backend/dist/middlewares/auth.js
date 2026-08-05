@@ -19,7 +19,5 @@ export const verifyUser = TryCatch(async (req, res, next) => {
     const user = await User.findById(id);
     if (!user)
         return next(new ErrorHandler("Invalid Id ", 401));
-    if (user.role != "user")
-        return next(new ErrorHandler("Only admin can access", 401));
     next();
 });
