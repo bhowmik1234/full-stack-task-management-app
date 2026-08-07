@@ -1,314 +1,241 @@
-// import { redis, redisTTL } from "../app.js";
 import { TryCatch } from "../middlewares/error.js";
-import { Order } from "../models/orders.js";
-import { Product } from "../models/product.js";
-import { User } from "../models/user.js";
-import { calculatePercentage, getChartData, getInventories, } from "../utils/features.js";
-export const getDashboardStats = TryCatch(async (req, res, next) => {
-    let stats;
-    //   const key = "admin-stats";
-    //   stats = await redis.get(key);
-    if (stats)
-        stats = JSON.parse(stats);
-    else {
-        const today = new Date();
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-        const thisMonth = {
-            start: new Date(today.getFullYear(), today.getMonth(), 1),
-            end: today,
-        };
-        const lastMonth = {
-            start: new Date(today.getFullYear(), today.getMonth() - 1, 1),
-            end: new Date(today.getFullYear(), today.getMonth(), 0),
-        };
-        const thisMonthProductsPromise = Product.find({
-            createdAt: {
-                $gte: thisMonth.start,
-                $lte: thisMonth.end,
-            },
-        });
-        const lastMonthProductsPromise = Product.find({
-            createdAt: {
-                $gte: lastMonth.start,
-                $lte: lastMonth.end,
-            },
-        });
-        const thisMonthUsersPromise = User.find({
-            createdAt: {
-                $gte: thisMonth.start,
-                $lte: thisMonth.end,
-            },
-        });
-        const lastMonthUsersPromise = User.find({
-            createdAt: {
-                $gte: lastMonth.start,
-                $lte: lastMonth.end,
-            },
-        });
-        const thisMonthOrdersPromise = Order.find({
-            createdAt: {
-                $gte: thisMonth.start,
-                $lte: thisMonth.end,
-            },
-        });
-        const lastMonthOrdersPromise = Order.find({
-            createdAt: {
-                $gte: lastMonth.start,
-                $lte: lastMonth.end,
-            },
-        });
-        const lastSixMonthOrdersPromise = Order.find({
-            createdAt: {
-                $gte: sixMonthsAgo,
-                $lte: today,
-            },
-        });
-        const latestTransactionsPromise = Order.find({})
-            .select(["orderItems", "discount", "total", "status"])
-            .limit(4);
-        const [thisMonthProducts, thisMonthUsers, thisMonthOrders, lastMonthProducts, lastMonthUsers, lastMonthOrders, productsCount, usersCount, allOrders, lastSixMonthOrders, categories, femaleUsersCount, latestTransaction,] = await Promise.all([
-            thisMonthProductsPromise,
-            thisMonthUsersPromise,
-            thisMonthOrdersPromise,
-            lastMonthProductsPromise,
-            lastMonthUsersPromise,
-            lastMonthOrdersPromise,
-            Product.countDocuments(),
-            User.countDocuments(),
-            Order.find({}).select("total"),
-            lastSixMonthOrdersPromise,
-            Product.distinct("category"),
-            User.countDocuments({ gender: "female" }),
-            latestTransactionsPromise,
-        ]);
-        const thisMonthRevenue = thisMonthOrders.reduce((total, order) => total + (order.total || 0), 0);
-        const lastMonthRevenue = lastMonthOrders.reduce((total, order) => total + (order.total || 0), 0);
-        const changePercent = {
-            revenue: calculatePercentage(thisMonthRevenue, lastMonthRevenue),
-            product: calculatePercentage(thisMonthProducts.length, lastMonthProducts.length),
-            user: calculatePercentage(thisMonthUsers.length, lastMonthUsers.length),
-            order: calculatePercentage(thisMonthOrders.length, lastMonthOrders.length),
-        };
-        const revenue = allOrders.reduce((total, order) => total + (order.total || 0), 0);
-        const count = {
-            revenue,
-            product: productsCount,
-            user: usersCount,
-            order: allOrders.length,
-        };
-        const orderMonthCounts = new Array(6).fill(0);
-        const orderMonthyRevenue = new Array(6).fill(0);
-        lastSixMonthOrders.forEach((order) => {
-            const creationDate = order.createdAt;
-            const monthDiff = (today.getMonth() - creationDate.getMonth() + 12) % 12;
-            if (monthDiff < 6) {
-                orderMonthCounts[6 - monthDiff - 1] += 1;
-                orderMonthyRevenue[6 - monthDiff - 1] += order.total;
-            }
-        });
-        const categoryCount = await getInventories({
-            categories,
-            productsCount,
-        });
-        const userRatio = {
-            male: usersCount - femaleUsersCount,
-            female: femaleUsersCount,
-        };
-        const modifiedLatestTransaction = latestTransaction.map((i) => ({
-            _id: i._id,
-            discount: i.discount,
-            amount: i.total,
-            quantity: i.orderItems.length,
-            status: i.status,
-        }));
-        stats = {
-            categoryCount,
-            changePercent,
-            count,
-            chart: {
-                order: orderMonthCounts,
-                revenue: orderMonthyRevenue,
-            },
-            userRatio,
-            latestTransaction: modifiedLatestTransaction,
-        };
-        //     await redis.setex(key, redisTTL, JSON.stringify(stats));
+import { prisma } from "../utils/db.js";
+import { Prisma } from "../generated/prisma/index.js";
+import { calculatePercentage, getInventories } from "../utils/features.js";
+import { decimalToNumber as num } from "../utils/serialize.js";
+/**
+ * Buckets rows into the last `length` calendar months, newest last — the shape
+ * the admin charts expect.
+ *
+ * This replaces getChartData(), which fetched whole documents and bucketed them
+ * in JS. Two things improve: the work happens in the database over an index on
+ * createdAt instead of scaling with row count, and the month arithmetic is
+ * correct across year boundaries. The old `(thisMonth - thatMonth + 12) % 12`
+ * mapped a row from exactly 12 months ago onto the current month's bucket.
+ */
+const monthlyBuckets = async (table, length, sumColumn) => {
+    const t = Prisma.raw(`"${table}"`);
+    const value = sumColumn
+        ? Prisma.raw(`COALESCE(SUM("${sumColumn}"), 0)`)
+        : Prisma.raw("COUNT(*)");
+    const rows = await prisma.$queryRaw `
+    SELECT
+      (
+        EXTRACT(YEAR  FROM age(date_trunc('month', now()), date_trunc('month', "createdAt"))) * 12 +
+        EXTRACT(MONTH FROM age(date_trunc('month', now()), date_trunc('month', "createdAt")))
+      )::int AS month_diff,
+      ${value}::float8 AS value
+    FROM ${t}
+    WHERE "createdAt" >= date_trunc('month', now()) - make_interval(months => ${length - 1})
+    GROUP BY 1
+  `;
+    const data = new Array(length).fill(0);
+    for (const r of rows) {
+        const idx = length - Number(r.month_diff) - 1;
+        if (idx >= 0 && idx < length)
+            data[idx] = Number(r.value);
     }
+    return data;
+};
+export const getDashboardStats = TryCatch(async (req, res, next) => {
+    const today = new Date();
+    const thisMonth = {
+        start: new Date(today.getFullYear(), today.getMonth(), 1),
+        end: today,
+    };
+    const lastMonth = {
+        start: new Date(today.getFullYear(), today.getMonth() - 1, 1),
+        end: new Date(today.getFullYear(), today.getMonth(), 0),
+    };
+    const inThisMonth = { createdAt: { gte: thisMonth.start, lte: thisMonth.end } };
+    const inLastMonth = { createdAt: { gte: lastMonth.start, lte: lastMonth.end } };
+    const [thisMonthProducts, lastMonthProducts, thisMonthUsers, lastMonthUsers, thisMonthOrders, lastMonthOrders, thisMonthRevenueAgg, lastMonthRevenueAgg, productsCount, usersCount, ordersAgg, categoryRows, femaleUsersCount, latestTransaction,] = await Promise.all([
+        prisma.product.count({ where: inThisMonth }),
+        prisma.product.count({ where: inLastMonth }),
+        prisma.user.count({ where: inThisMonth }),
+        prisma.user.count({ where: inLastMonth }),
+        prisma.order.count({ where: inThisMonth }),
+        prisma.order.count({ where: inLastMonth }),
+        prisma.order.aggregate({ _sum: { total: true }, where: inThisMonth }),
+        prisma.order.aggregate({ _sum: { total: true }, where: inLastMonth }),
+        prisma.product.count(),
+        prisma.user.count(),
+        // revenue and order count in one pass instead of loading every order
+        prisma.order.aggregate({ _sum: { total: true }, _count: { _all: true } }),
+        prisma.product.findMany({
+            distinct: ["category"],
+            select: { category: true },
+            orderBy: { category: "asc" },
+        }),
+        // was { gender: "female" } — lowercase never matched the "Female" enum, so
+        // this counted 0 and the male/female split was always 100/0
+        prisma.user.count({ where: { gender: "Female" } }),
+        prisma.order.findMany({
+            select: {
+                id: true,
+                discount: true,
+                total: true,
+                status: true,
+                _count: { select: { items: true } },
+            },
+            orderBy: { createdAt: "desc" },
+            take: 4,
+        }),
+    ]);
+    const changePercent = {
+        revenue: calculatePercentage(num(thisMonthRevenueAgg._sum.total), num(lastMonthRevenueAgg._sum.total)),
+        product: calculatePercentage(thisMonthProducts, lastMonthProducts),
+        user: calculatePercentage(thisMonthUsers, lastMonthUsers),
+        order: calculatePercentage(thisMonthOrders, lastMonthOrders),
+    };
+    const count = {
+        revenue: num(ordersAgg._sum.total),
+        product: productsCount,
+        user: usersCount,
+        order: ordersAgg._count._all,
+    };
+    const [orderMonthCounts, orderMonthyRevenue, categoryCount] = await Promise.all([
+        monthlyBuckets("Order", 6),
+        monthlyBuckets("Order", 6, "total"),
+        getInventories({
+            categories: categoryRows.map((c) => c.category),
+            productsCount,
+        }),
+    ]);
+    const userRatio = {
+        male: usersCount - femaleUsersCount,
+        female: femaleUsersCount,
+    };
+    const modifiedLatestTransaction = latestTransaction.map((i) => ({
+        _id: i.id,
+        discount: num(i.discount),
+        amount: num(i.total),
+        quantity: i._count.items,
+        status: i.status,
+    }));
+    const stats = {
+        categoryCount,
+        changePercent,
+        count,
+        chart: {
+            order: orderMonthCounts,
+            revenue: orderMonthyRevenue,
+        },
+        userRatio,
+        latestTransaction: modifiedLatestTransaction,
+    };
     return res.status(200).json({
         success: true,
         stats,
     });
 });
 export const getPieCharts = TryCatch(async (req, res, next) => {
-    let charts;
-    //   const key = "admin-pie-charts";
-    //   charts = await redis.get(key);
-    if (charts)
-        charts = JSON.parse(charts);
-    else {
-        const allOrderPromise = Order.find({}).select([
-            "total",
-            "discount",
-            "subtotal",
-            "tax",
-            "shippingCharges",
-        ]);
-        const [processingOrder, shippedOrder, deliveredOrder, categories, productsCount, outOfStock, allOrders, allUsers, adminUsers, customerUsers,] = await Promise.all([
-            Order.countDocuments({ status: "Processing" }),
-            Order.countDocuments({ status: "Shipped" }),
-            Order.countDocuments({ status: "Delivered" }),
-            Product.distinct("category"),
-            Product.countDocuments(),
-            Product.countDocuments({ stock: 0 }),
-            allOrderPromise,
-            User.find({}).select(["dob"]),
-            User.countDocuments({ role: "admin" }),
-            User.countDocuments({ role: "user" }),
-        ]);
-        const orderFullfillment = {
-            processing: processingOrder,
-            shipped: shippedOrder,
-            delivered: deliveredOrder,
-        };
-        const productCategories = await getInventories({
-            categories,
-            productsCount,
-        });
-        const stockAvailablity = {
-            inStock: productsCount - outOfStock,
-            outOfStock,
-        };
-        const grossIncome = allOrders.reduce((prev, order) => prev + (order.total || 0), 0);
-        const discount = allOrders.reduce((prev, order) => prev + (order.discount || 0), 0);
-        const productionCost = allOrders.reduce((prev, order) => prev + (order.shippingCharges || 0), 0);
-        const burnt = allOrders.reduce((prev, order) => prev + (order.tax || 0), 0);
-        const marketingCost = Math.round(grossIncome * (30 / 100));
-        const netMargin = grossIncome - discount - productionCost - burnt - marketingCost;
-        const revenueDistribution = {
-            netMargin,
-            discount,
-            productionCost,
-            burnt,
-            marketingCost,
-        };
-        const usersAgeGroup = {
-            teen: allUsers.filter((i) => i.age < 20).length,
-            adult: allUsers.filter((i) => i.age >= 20 && i.age < 40).length,
-            old: allUsers.filter((i) => i.age >= 40).length,
-        };
-        const adminCustomer = {
-            admin: adminUsers,
-            customer: customerUsers,
-        };
-        charts = {
-            orderFullfillment,
-            productCategories,
-            stockAvailablity,
-            revenueDistribution,
-            usersAgeGroup,
-            adminCustomer,
-        };
-        //     await redis.setex(key, redisTTL, JSON.stringify(charts));
-    }
+    const [statusCounts, categoryRows, productsCount, outOfStock, orderTotals, adminUsers, customerUsers, ageGroups,] = await Promise.all([
+        prisma.order.groupBy({ by: ["status"], _count: { _all: true } }),
+        prisma.product.findMany({
+            distinct: ["category"],
+            select: { category: true },
+            orderBy: { category: "asc" },
+        }),
+        prisma.product.count(),
+        prisma.product.count({ where: { stock: 0 } }),
+        // four SUMs in one query, replacing four reduce() passes over every order
+        prisma.order.aggregate({
+            _sum: {
+                total: true,
+                discount: true,
+                shippingCharges: true,
+                tax: true,
+            },
+        }),
+        prisma.user.count({ where: { role: "admin" } }),
+        prisma.user.count({ where: { role: "user" } }),
+        // `age` was a Mongoose virtual computed per document in JS; Postgres has no
+        // virtuals, so the bucketing happens in SQL against dob
+        prisma.$queryRaw `
+      SELECT
+        COUNT(*) FILTER (WHERE age < 20)::int              AS teen,
+        COUNT(*) FILTER (WHERE age >= 20 AND age < 40)::int AS adult,
+        COUNT(*) FILTER (WHERE age >= 40)::int              AS old
+      FROM (
+        SELECT date_part('year', age(dob))::int AS age FROM "User"
+      ) s
+    `,
+    ]);
+    const byStatus = (s) => statusCounts.find((r) => r.status === s)?._count._all ?? 0;
+    const orderFullfillment = {
+        processing: byStatus("Processing"),
+        shipped: byStatus("Shipped"),
+        delivered: byStatus("Delivered"),
+    };
+    const productCategories = await getInventories({
+        categories: categoryRows.map((c) => c.category),
+        productsCount,
+    });
+    const stockAvailablity = {
+        inStock: productsCount - outOfStock,
+        outOfStock,
+    };
+    const grossIncome = num(orderTotals._sum.total);
+    const discount = num(orderTotals._sum.discount);
+    const productionCost = num(orderTotals._sum.shippingCharges);
+    const burnt = num(orderTotals._sum.tax);
+    const marketingCost = Math.round(grossIncome * (30 / 100));
+    const netMargin = grossIncome - discount - productionCost - burnt - marketingCost;
+    const revenueDistribution = {
+        netMargin,
+        discount,
+        productionCost,
+        burnt,
+        marketingCost,
+    };
+    const usersAgeGroup = ageGroups[0] ?? { teen: 0, adult: 0, old: 0 };
+    const adminCustomer = {
+        admin: adminUsers,
+        customer: customerUsers,
+    };
+    const charts = {
+        orderFullfillment,
+        productCategories,
+        stockAvailablity,
+        revenueDistribution,
+        usersAgeGroup,
+        adminCustomer,
+    };
     return res.status(200).json({
         success: true,
         charts,
     });
 });
 export const getBarCharts = TryCatch(async (req, res, next) => {
-    let charts;
-    //   const key = "admin-bar-charts";
-    //   charts = await redis.get(key);
-    if (charts)
-        charts = JSON.parse(charts);
-    else {
-        const today = new Date();
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-        const twelveMonthsAgo = new Date();
-        twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
-        const sixMonthProductPromise = Product.find({
-            createdAt: {
-                $gte: sixMonthsAgo,
-                $lte: today,
-            },
-        }).select("createdAt");
-        const sixMonthUsersPromise = User.find({
-            createdAt: {
-                $gte: sixMonthsAgo,
-                $lte: today,
-            },
-        }).select("createdAt");
-        const twelveMonthOrdersPromise = Order.find({
-            createdAt: {
-                $gte: twelveMonthsAgo,
-                $lte: today,
-            },
-        }).select("createdAt");
-        const [products, users, orders] = await Promise.all([
-            sixMonthProductPromise,
-            sixMonthUsersPromise,
-            twelveMonthOrdersPromise,
-        ]);
-        const productCounts = getChartData({ length: 6, today, docArr: products });
-        const usersCounts = getChartData({ length: 6, today, docArr: users });
-        const ordersCounts = getChartData({ length: 12, today, docArr: orders });
-        charts = {
-            users: usersCounts,
-            products: productCounts,
-            orders: ordersCounts,
-        };
-        //     await redis.setex(key, redisTTL, JSON.stringify(charts));
-    }
+    const [productCounts, usersCounts, ordersCounts] = await Promise.all([
+        monthlyBuckets("Product", 6),
+        monthlyBuckets("User", 6),
+        monthlyBuckets("Order", 12),
+    ]);
+    const charts = {
+        users: usersCounts,
+        products: productCounts,
+        orders: ordersCounts,
+    };
     return res.status(200).json({
         success: true,
         charts,
     });
 });
 export const getLineCharts = TryCatch(async (req, res, next) => {
-    let charts;
-    //   const key = "admin-line-charts";
-    //   charts = await redis.get(key);
-    if (charts)
-        charts = JSON.parse(charts);
-    else {
-        const today = new Date();
-        const twelveMonthsAgo = new Date();
-        twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
-        const baseQuery = {
-            createdAt: {
-                $gte: twelveMonthsAgo,
-                $lte: today,
-            },
-        };
-        const [products, users, orders] = await Promise.all([
-            Product.find(baseQuery).select("createdAt"),
-            User.find(baseQuery).select("createdAt"),
-            Order.find(baseQuery).select(["createdAt", "discount", "total"]),
-        ]);
-        const productCounts = getChartData({ length: 12, today, docArr: products });
-        const usersCounts = getChartData({ length: 12, today, docArr: users });
-        const discount = getChartData({
-            length: 12,
-            today,
-            docArr: orders,
-            property: "discount",
-        });
-        const revenue = getChartData({
-            length: 12,
-            today,
-            docArr: orders,
-            property: "total",
-        });
-        charts = {
-            users: usersCounts,
-            products: productCounts,
-            discount,
-            revenue,
-        };
-        //     await redis.setex(key, redisTTL, JSON.stringify(charts));
-    }
+    const [productCounts, usersCounts, discount, revenue] = await Promise.all([
+        monthlyBuckets("Product", 12),
+        monthlyBuckets("User", 12),
+        monthlyBuckets("Order", 12, "discount"),
+        monthlyBuckets("Order", 12, "total"),
+    ]);
+    const charts = {
+        users: usersCounts,
+        products: productCounts,
+        discount,
+        revenue,
+    };
     return res.status(200).json({
         success: true,
         charts,

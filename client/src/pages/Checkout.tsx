@@ -25,12 +25,13 @@ const CheckoutForm = () => {
 
     const { user } = useSelector((state: RootState) => state.userReducer);
 
-    const { 
+    const {
         shippingInfo,
         cartItems,
         subtotal,
         tax,
         discount,
+        couponCode,
         shippingCharges,
         total
     } = useSelector((state: RootState) => state.cartReducer);
@@ -50,6 +51,7 @@ const CheckoutForm = () => {
             subtotal,
             tax,
             discount,
+            couponCode: couponCode || undefined,
             shippingCharges,
             total,
             user: user?._id!

@@ -9,7 +9,7 @@ export const orderAPI = createApi({
     tagTypes: ["orders"],
     endpoints: (builder) => ({
         newOrder: builder.mutation<MessageResponse, NewOrderRequest>({
-            query: (order) => ({url: "new", method: "POST", body: order}),
+            query: (order) => ({url: `new?id=${order.user}`, method: "POST", body: order}),
             invalidatesTags: ["orders"]
         }),
         updateOrder: builder.mutation<MessageResponse, UpdateOrderRequest>({
@@ -28,8 +28,8 @@ export const orderAPI = createApi({
             query: (id) => `all?id=${id}`,
             providesTags: ["orders"]
         }),
-        orderDetails: builder.query<orderDetailsResponse, string>({
-            query: (id) => id,
+        orderDetails: builder.query<orderDetailsResponse, UpdateOrderRequest>({
+            query: ({orderId, userId}) => `${orderId}?id=${userId}`,
             providesTags: ["orders"]
         }),
     }),

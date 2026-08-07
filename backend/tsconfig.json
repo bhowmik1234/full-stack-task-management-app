@@ -11,5 +11,8 @@
     /* Type Checking */
     "strict": true,                                      /* Enable all strict type-checking options. */
     "skipLibCheck": true                                 /* Skip type checking all .d.ts files. */
-  }
+  },
+  /* Only the server sources are compiled to dist/. prisma.config.ts and
+     scripts/ are run directly with tsx and live outside rootDir. */
+  "include": ["src/**/*"]
 }

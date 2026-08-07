@@ -5,3 +5,7 @@ uploads
 .env.*
 *.log
 .DS_Store
+
+# generated at image build time by `prisma generate`; never copy a host copy in
+src/generated
+scripts

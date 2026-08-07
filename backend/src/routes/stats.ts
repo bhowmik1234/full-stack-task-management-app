@@ -10,7 +10,7 @@ import {
 const app = express.Router();
 
 // route - /api/v1/dashboard/stats
-app.get("/stats", getDashboardStats);
+app.get("/stats", adminOnly, getDashboardStats);
 
 // // route - /api/v1/dashboard/pie
 app.get("/pie", adminOnly, getPieCharts);

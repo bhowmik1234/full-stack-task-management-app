@@ -1,5 +1,5 @@
 import express from "express";
-import { adminOnly } from "../middlewares/auth.js";
+import { adminOnly, verifyUser } from "../middlewares/auth.js";
 import {
   allCoupons,
   applyDiscount,
@@ -13,13 +13,13 @@ import {
 const app = express.Router();
 
 // route - /api/v1/payment/create
-app.post("/create", createPaymentIntent);
+app.post("/create", verifyUser, createPaymentIntent);
 
 // route - /api/v1/payment/coupon/new
 app.get("/discount", applyDiscount);
 
 // route - /api/v1/payment/coupon/new
-app.post("/coupon/new", newCoupon);
+app.post("/coupon/new", adminOnly, newCoupon);
 
 // route - /api/v1/payment/coupon/all
 app.get("/coupon/all", adminOnly, allCoupons);

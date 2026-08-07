@@ -1,0 +1,135 @@
+// Postgres schema. Replaces the Mongoose models that used to live in src/models/.
+//
+// Primary keys for User and Product are TEXT holding the values that came from
+// MongoDB (Firebase UID for users, 24-char ObjectId hex for products), so the
+// migration never had to remap the product ids embedded in historical orders.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+// Prisma 7 takes the connection string from prisma.config.ts (CLI) and from the
+// PrismaPg adapter in src/utils/db.ts (runtime), not from a `url` here.
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  user
+  admin
+}
+
+enum Gender {
+  Male
+  Female
+}
+
+enum OrderStatus {
+  Processing
+  Shipped
+  Delivered
+}
+
+model User {
+  id        String   @id // Firebase UID
+  name      String
+  email     String   @unique
+  role      Role     @default(user)
+  gender    Gender
+  photo     String
+  dob       DateTime @db.Date
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders   Order[]
+  wishlist WishlistItem[]
+}
+
+model Product {
+  id        String   @id @default(uuid())
+  name      String
+  photo     String
+  price     Decimal  @db.Decimal(10, 2)
+  stock     Int
+  category  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orderItems   OrderItem[]
+  wishlistedBy WishlistItem[]
+
+  @@index([category])
+  @@index([createdAt])
+}
+
+model Order {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  // shippingInfo was an embedded object in Mongo; it is a fixed 5-field struct
+  // always read and written whole, so it flattens into columns.
+  address String
+  city    String
+  state   String
+  country String
+  pinCode String // String, not Number — Number ate leading zeros
+
+  subtotal        Decimal @db.Decimal(10, 2)
+  tax             Decimal @db.Decimal(10, 2)
+  shippingCharges Decimal @db.Decimal(10, 2)
+  discount        Decimal @db.Decimal(10, 2)
+  total           Decimal @db.Decimal(10, 2)
+
+  status    OrderStatus @default(Processing)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  items OrderItem[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([status])
+}
+
+model OrderItem {
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // Restrict: a product that has ever been ordered cannot be deleted out from
+  // under order history. deleteProduct archives instead.
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  // Snapshot of the product at purchase time. price is what was actually paid
+  // and must never be re-read from Product.
+  name     String
+  photo    String
+  price    Decimal @db.Decimal(10, 2)
+  quantity Int
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model Coupon {
+  id     String  @id @default(uuid())
+  code   String  @unique
+  amount Decimal @db.Decimal(10, 2)
+}
+
+// Was one document per user holding a productId array, which needed
+// read-modify-write to add an item. One row per pair; the composite primary key
+// makes duplicates impossible.
+model WishlistItem {
+  userId    String
+  productId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, productId])
+  @@index([userId])
+}

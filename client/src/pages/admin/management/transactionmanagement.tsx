@@ -33,7 +33,7 @@ const TransactionManagement = () => {
 
     const { id } = useParams();
     const navigate = useNavigate();
-    const { isLoading, data, isError } = useOrderDetailsQuery(id!);
+    const { isLoading, data, isError } = useOrderDetailsQuery({ orderId: id!, userId: user?._id! });
 
     const [updateOrder] = useUpdateOrderMutation();
     const [deleteOrder] = useDeleteOrderMutation();

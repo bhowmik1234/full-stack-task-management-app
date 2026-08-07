@@ -1,5 +1,5 @@
 import express from "express";
-import { connectdb } from "./utils/configdb.js";
+import { connectdb } from "./utils/db.js";
 import { errorMiddleware } from "./middlewares/error.js";
 import NodeCache from "node-cache";
 import { config } from "dotenv";
@@ -40,7 +40,10 @@ cloudinary.config({
 export const stripe = new Stripe(stripeKey);
 export const myCache = new NodeCache();
 connectdb();
-app.use(cors())
+// falls back to allow-all when CLIENT_URL isn't set, so local/dev setups
+// that predate this var keep working
+const allowedOrigin = process.env.CLIENT_URL;
+app.use(cors({ origin: allowedOrigin || true }))
 
 app.use(express.json());
 app.use(morgan("dev"));

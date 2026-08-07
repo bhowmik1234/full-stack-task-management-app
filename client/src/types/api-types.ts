@@ -83,6 +83,7 @@ export type MessageResponse = {
     tax: number;
     shippingCharges: number;
     discount: number;
+    couponCode?: string;
     total: number;
     user: string;
   };

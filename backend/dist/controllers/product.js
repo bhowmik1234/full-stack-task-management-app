@@ -1,10 +1,10 @@
 import { TryCatch } from "../middlewares/error.js";
-import { Product } from "../models/product.js";
+import { prisma } from "../utils/db.js";
 import ErrorHandler from "../utils/utiliy-class.js";
 import { rm } from "fs";
 import { myCache } from "../app.js";
 import { invalidateCache } from "../utils/features.js";
-import { WishList } from "../models/wishlist.js";
+import { serializeProduct, serializeProducts } from "../utils/serialize.js";
 export const newProduct = TryCatch(async (req, res, next) => {
     const { name, category, price, stock } = req.body;
     const photo = req.file;
@@ -16,12 +16,20 @@ export const newProduct = TryCatch(async (req, res, next) => {
         });
         return next(new ErrorHandler("please enter all details", 400));
     }
-    await Product.create({
-        name,
-        category: category.toLocaleLowerCase(),
-        price,
-        stock,
-        photo: photo?.path,
+    if (Number(price) < 0 || Number(stock) < 0) {
+        rm(photo.path, () => {
+            console.log("photo deleted.");
+        });
+        return next(new ErrorHandler("Price and stock must not be negative", 400));
+    }
+    await prisma.product.create({
+        data: {
+            name,
+            category: category.toLocaleLowerCase(),
+            price: Number(price),
+            stock: Number(stock),
+            photo: photo.path,
+        },
     });
     invalidateCache({ product: true, admin: true });
     return res.status(201).json({
@@ -35,7 +43,11 @@ export const getlatestProducts = TryCatch(async (req, res, next) => {
         products = JSON.parse(myCache.get("latest-products"));
     }
     else {
-        products = await Product.find({}).sort({ createdAt: -1 }).limit(5);
+        const rows = await prisma.product.findMany({
+            orderBy: { createdAt: "desc" },
+            take: 5,
+        });
+        products = serializeProducts(rows);
         myCache.set("latest-products", JSON.stringify(products));
     }
     return res.status(200).json({
@@ -48,7 +60,12 @@ export const getAllCategories = TryCatch(async (req, res, next) => {
     if (myCache.has("categories"))
         categories = JSON.parse(myCache.get("categories"));
     else {
-        categories = await Product.distinct("category");
+        const rows = await prisma.product.findMany({
+            distinct: ["category"],
+            select: { category: true },
+            orderBy: { category: "asc" },
+        });
+        categories = rows.map((r) => r.category);
         myCache.set("categories", JSON.stringify(categories));
     }
     return res.status(200).json({
@@ -61,7 +78,8 @@ export const getAdminProducts = TryCatch(async (req, res, next) => {
     if (myCache.has("all-products"))
         products = JSON.parse(myCache.get("all-products"));
     else {
-        products = await Product.find({});
+        const rows = await prisma.product.findMany();
+        products = serializeProducts(rows);
         myCache.set("all-products", JSON.stringify(products));
     }
     return res.status(200).json({
@@ -71,13 +89,14 @@ export const getAdminProducts = TryCatch(async (req, res, next) => {
 });
 export const getSingleProduct = TryCatch(async (req, res, next) => {
     let product;
-    const id = req.params.id;
+    const id = String(req.params.id);
     if (myCache.has(`product-${id}`))
         product = JSON.parse(myCache.get(`product-${id}`));
     else {
-        product = await Product.findById(id);
-        if (!product)
+        const row = await prisma.product.findUnique({ where: { id } });
+        if (!row)
             return next(new ErrorHandler("Product Not Found", 404));
+        product = serializeProduct(row);
         myCache.set(`product-${id}`, JSON.stringify(product));
     }
     return res.status(200).json({
@@ -86,30 +105,35 @@ export const getSingleProduct = TryCatch(async (req, res, next) => {
     });
 });
 export const updateProduct = TryCatch(async (req, res, next) => {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { name, price, stock, category } = req.body;
     const photo = req.file;
-    const product = await Product.findById(id);
+    const product = await prisma.product.findUnique({ where: { id } });
     if (!product)
         return next(new ErrorHandler("Product Not Found", 404));
+    if (price != null && Number(price) < 0)
+        return next(new ErrorHandler("Price must not be negative", 400));
+    if (stock != null && Number(stock) < 0)
+        return next(new ErrorHandler("Stock must not be negative", 400));
+    const data = {};
     if (photo) {
         rm(product.photo, () => {
             console.log("Old Photo Deleted");
         });
-        product.photo = photo.path;
+        data.photo = photo.path;
     }
     if (name)
-        product.name = name;
+        data.name = name;
     if (price)
-        product.price = price;
+        data.price = Number(price);
     if (stock)
-        product.stock = stock;
+        data.stock = Number(stock);
     if (category)
-        product.category = category.toLocaleLowerCase();
-    await product.save();
+        data.category = category.toLocaleLowerCase();
+    await prisma.product.update({ where: { id }, data });
     invalidateCache({
         product: true,
-        productId: String(product._id),
+        productId: product.id,
         admin: true,
     });
     return res.status(200).json({
@@ -118,16 +142,26 @@ export const updateProduct = TryCatch(async (req, res, next) => {
     });
 });
 export const deleteProduct = TryCatch(async (req, res, next) => {
-    const product = await Product.findById(req.params.id);
+    const product = await prisma.product.findUnique({
+        where: { id: String(req.params.id) },
+    });
     if (!product)
         return next(new ErrorHandler("Product Not Found", 404));
+    // OrderItem holds an FK with onDelete: Restrict so order history can't be
+    // orphaned. Under Mongo this deleted the product and left past orders
+    // pointing at nothing.
+    const ordered = await prisma.orderItem.count({
+        where: { productId: product.id },
+    });
+    if (ordered > 0)
+        return next(new ErrorHandler("Cannot delete a product that appears in existing orders", 400));
     rm(product.photo, () => {
         console.log("Product Photo Deleted");
     });
-    await product.deleteOne();
+    await prisma.product.delete({ where: { id: product.id } });
     invalidateCache({
         product: true,
-        productId: String(product._id),
+        productId: product.id,
         admin: true,
     });
     return res.status(200).json({
@@ -138,58 +172,52 @@ export const deleteProduct = TryCatch(async (req, res, next) => {
 export const getAllProducts = TryCatch(async (req, res, next) => {
     const { search, sort, category, price } = req.query;
     const page = Number(req.query.page) || 1;
-    // 1,2,3,4,5,6,7,8
-    // 9,10,11,12,13,14,15,16
-    // 17,18,19,20,21,22,23,24
     const limit = Number(process.env.PRODUCT_PER_PAGE) || 8;
     const skip = (page - 1) * limit;
-    const baseQuery = {};
+    const where = {};
+    // mode: "insensitive" is the Postgres equivalent of $options: "i"
     if (search)
-        baseQuery.name = {
-            $regex: search,
-            $options: "i",
-        };
+        where.name = { contains: search, mode: "insensitive" };
     if (price)
-        baseQuery.price = {
-            $lte: Number(price),
-        };
+        where.price = { lte: Number(price) };
     if (category)
-        baseQuery.category = category;
-    const productsPromise = Product.find(baseQuery)
-        .sort(sort && { price: sort === "asc" ? 1 : -1 })
-        .limit(limit)
-        .skip(skip);
-    const [products, filteredOnlyProduct] = await Promise.all([
-        productsPromise,
-        Product.find(baseQuery),
+        where.category = category;
+    const [rows, filteredCount] = await Promise.all([
+        prisma.product.findMany({
+            where,
+            orderBy: sort ? { price: sort === "asc" ? "asc" : "desc" } : undefined,
+            take: limit,
+            skip,
+        }),
+        // COUNT in the database instead of fetching every matching row to
+        // measure the length of the result
+        prisma.product.count({ where }),
     ]);
-    const totalPage = Math.ceil(filteredOnlyProduct.length / limit);
+    const totalPage = Math.ceil(filteredCount / limit);
     return res.status(200).json({
         success: true,
-        products,
+        products: serializeProducts(rows),
         totalPage,
     });
 });
 export const addToWishList = TryCatch(async (req, res, next) => {
     const { id: userId } = req.query;
-    const productId = req.params.id;
-    // const productObjectId = new mongoose.Types.ObjectId(productId);
-    const product = await Product.findById(productId);
+    const productId = String(req.params.id);
+    const product = await prisma.product.findUnique({ where: { id: productId } });
     if (!product)
         return next(new ErrorHandler("Product Not Found", 404));
-    const wish = await WishList.findOne({ userId });
-    if (!wish) {
-        await WishList.create({ userId, productId: [productId] });
-        invalidateCache({ wishlist: true, userId: String(userId) });
-    }
-    else {
-        const productIds = wish.productId.map(id => id.toString());
-        if (!productIds.includes(productId.toString())) {
-            wish.productId.push(product._id);
-            await wish.save();
-            invalidateCache({ wishlist: true, userId: String(userId) });
-        }
-    }
+    // One row per (user, product) with a composite primary key. The old model
+    // pushed onto an array in a single document, which meant read-modify-write
+    // and a lost-update race between two tabs; upsert here is a single statement
+    // and duplicates are impossible by construction.
+    await prisma.wishlistItem.upsert({
+        where: {
+            userId_productId: { userId: String(userId), productId },
+        },
+        create: { userId: String(userId), productId },
+        update: {},
+    });
+    invalidateCache({ wishlist: true, userId: String(userId) });
     return res.status(200).json({
         success: true,
         message: "Added to wishList.",
@@ -203,12 +231,14 @@ export const myWishList = TryCatch(async (req, res, next) => {
         products = JSON.parse(myCache.get(key));
     }
     else {
-        const wish = await WishList.findOne({ userId: id });
-        const productPromises = (wish?.productId ?? []).map(async (productId) => {
-            return await Product.findById(productId);
+        // one join instead of N findById round-trips; the FK guarantees the
+        // product still exists, so no null-filtering is needed
+        const rows = await prisma.wishlistItem.findMany({
+            where: { userId: String(id) },
+            include: { product: true },
+            orderBy: { createdAt: "desc" },
         });
-        // a wishlisted product may have been deleted since it was added
-        products = (await Promise.all(productPromises)).filter((p) => p !== null);
+        products = serializeProducts(rows.map((r) => r.product));
         myCache.set(key, JSON.stringify(products));
     }
     return res.status(200).json({
@@ -219,10 +249,11 @@ export const myWishList = TryCatch(async (req, res, next) => {
 });
 export const deleteWishList = TryCatch(async (req, res, next) => {
     const { id: userId } = req.query;
-    const { id: productId } = req.params;
-    const wish = await WishList.findOneAndUpdate({ userId }, { $pull: { productId: productId } }, { new: true } // Return the updated document
-    );
-    if (!wish) {
+    const productId = String(req.params.id);
+    const { count } = await prisma.wishlistItem.deleteMany({
+        where: { userId: String(userId), productId },
+    });
+    if (count === 0) {
         return res.status(404).json({
             success: false,
             message: 'Wishlist not found or product not in wishlist',

@@ -2,7 +2,7 @@ import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { BiArrowBack } from "react-icons/bi";
 import { FaMapMarkerAlt, FaCity, FaGlobeAmericas, FaFlag } from 'react-icons/fa';
 import { MdLocalPostOffice } from 'react-icons/md';
-import { CartReducerInitialState } from "../types/reducer-types";
+import { CartReducerInitialState, userReducerIntialState } from "../types/reducer-types";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -12,7 +12,8 @@ import { saveShippingInfo } from "../redux/reducer/cartReducer";
 const Shipping = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { cartItems, total } = useSelector((state:{cartReducer: CartReducerInitialState})=> state.cartReducer);
+  const { cartItems, couponCode } = useSelector((state:{cartReducer: CartReducerInitialState})=> state.cartReducer);
+  const { user } = useSelector((state: { userReducer: userReducerIntialState }) => state.userReducer);
 
   useEffect(()=>{
     if(cartItems.length <= 0){
@@ -40,8 +41,8 @@ const Shipping = () => {
     dispatch(saveShippingInfo(shippingInfo));
 
     try {
-      const { data } = await axios.post(`${import.meta.env.VITE_SERVER}/api/v1/payement/create`, 
-        {amount: total},
+      const { data } = await axios.post(`${import.meta.env.VITE_SERVER}/api/v1/payement/create?id=${user?._id}`,
+        {cartItems, couponCode: couponCode || undefined},
         {headers: {"Content-Type": "application/json"}}
       )
       navigate("/pay", {state: data.clientSecret,})

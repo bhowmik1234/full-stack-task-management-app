@@ -30,14 +30,8 @@ export type ControllerTypes = (
   next: NextFunction
 ) => Promise<void | Response<any, Record<string, any>>>;
 
-export interface BaseQuery {
-  name?: {
-    $regex: string,
-    $options: string,
-  };
-  price?: { $lte: number },
-  category?: string,
-}
+// BaseQuery is gone — product search now builds a Prisma.ProductWhereInput
+// directly in controllers/product.ts instead of a Mongo query object.
 
 export type InvalidateCacheProps = {
   product?: boolean;
@@ -62,16 +56,13 @@ export type ShippingInfoType = {
   city: string;
   state: string;
   country: string;
-  pinCode: number;
+  // string, not number: a numeric pinCode silently drops leading zeros
+  pinCode: string;
 };
 
 export interface NewOrderRequestBody {
   shippingInfo: ShippingInfoType;
   user: string;
-  subtotal: number;
-  tax: number;
-  shippingCharges: number;
-  discount: number;
-  total: number;
   orderItems: OrderItemType[];
+  couponCode?: string;
 }

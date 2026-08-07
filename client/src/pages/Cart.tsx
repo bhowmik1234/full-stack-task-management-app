@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { CartReducerInitialState } from "../types/reducer-types";
 import { CartItem } from "../types/types";
-import { addToCart, calculatePrice, discountApplied, removeCartItem } from "../redux/reducer/cartReducer";
+import { addToCart, calculatePrice, discountApplied, removeCartItem, saveCouponCode } from "../redux/reducer/cartReducer";
 import axios from "axios";
 
 const Cart = () => {
@@ -42,11 +42,13 @@ const Cart = () => {
       })
         .then((res) => {
           dispatch(discountApplied(res.data.discount));
+          dispatch(saveCouponCode(couponCode));
           dispatch(calculatePrice());
           setIsValidCouponcode(true)
         })
         .catch(() => {
           dispatch(discountApplied(0));
+          dispatch(saveCouponCode(""));
           dispatch(calculatePrice());
           setIsValidCouponcode(false);
         })
