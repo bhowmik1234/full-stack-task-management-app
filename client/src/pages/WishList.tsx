@@ -1,94 +1,24 @@
-
-// import toast from "react-hot-toast";
-// import ProductCart from "../components/ProductCart"; // Make sure this path is correct
-// import { CartItem } from "../types/types";
-// import { addToCart } from "../redux/reducer/cartReducer";
-// import { useDispatch } from "react-redux";
-
-// const data = {
-//     products: [
-//       {
-//         _id: '1',
-//         name: 'Product 1',
-//         price: 100,
-//         stock: 10,
-//         photo: 'https://via.placeholder.com/150'
-//       },
-//       {
-//         _id: '2',
-//         name: 'Product 2',
-//         price: 200,
-//         stock: 5,
-//         photo: 'https://via.placeholder.com/150'
-//       },
-//       {
-//         _id: '3',
-//         name: 'Product 3',
-//         price: 300,
-//         stock: 0,
-//         photo: 'https://via.placeholder.com/150'
-//       }
-//     ]
-//   };
-
-// const WishList = () => {
-//   // Dummy data
-//     const dispatch = useDispatch();
-
-//   // Dummy addToCartHandler function
-//   const addToCartHandler = (cartItem: CartItem) => {
-//     if (cartItem.stock < 1) {
-//       return toast.error("out of stock");
-//     }
-//     dispatch(addToCart(cartItem));
-//     toast.success("added to cart");
-//   }
-//   return (
-//     <div >
-//       {data?.products.map((i) => (
-//         <ProductCart
-//           key={i._id}
-//           productId={i._id}
-//           name={i.name}
-//           price={i.price}
-//           stock={i.stock}
-//           handler={addToCartHandler}
-//           photo={i.photo}
-//         />
-//       ))}
-//     </div>
-//   );
-// };
-
-// export default WishList;
-
-
-import { useEffect } from 'react';
 import toast from 'react-hot-toast';
-// import ProductCart from '../components/ProductCart'; // Ensure this path is correct
+import { Link } from 'react-router-dom';
+import { FaHeart } from 'react-icons/fa';
 import { CartItem } from '../types/types';
 import { addToCart } from '../redux/reducer/cartReducer';
 import { useDispatch, useSelector } from 'react-redux';
 import ProductCart from '../components/ProductCart';
 import { useMyWishListQuery } from '../redux/api/wishlistAPI';
 import { RootState } from '../redux/store';
-import { CustomError } from '../types/api-types';
-import { Skeleton } from '../components/Loader';
+import { ProductSkeleton } from '../components/Loader';
+import ErrorState from '../components/ErrorState';
+import { queryErrorMessage } from '../utils/errors';
 
 
 const WishList = () => {
     const dispatch = useDispatch();
     const { user } = useSelector((state: RootState) => state.userReducer);
-    const { data: wishListData, isLoading, isError, error } = useMyWishListQuery(user?._id ?? "", {
-        skip: !user?._id,
-    });
-
-    useEffect(() => {
-        if (isError) {
-            const err = error as CustomError;
-            toast.error(err.data.message);
-        }
-    }, [isError, error]);
+    const { data: wishListData, isLoading, isError, error, refetch } = useMyWishListQuery(
+        user?._id ?? "",
+        { skip: !user?._id }
+    );
 
     const addToCartHandler = (cartItem: CartItem) => {
         if (cartItem.stock < 1) {
@@ -98,21 +28,56 @@ const WishList = () => {
         toast.success('Added to cart');
     };
 
+    const items = wishListData?.WishList ?? [];
+
     return (
-        <div className="wishlist-container">
-            { isLoading ? <Skeleton width='50vw' /> :
-                wishListData?.WishList.map((i) => (
-                    <ProductCart
-                        key={i._id}
-                        productId={i._id}
-                        // description={""}
-                        name={i.name}
-                        price={i.price}
-                        stock={i.stock}
-                        handler={addToCartHandler}
-                        photo={i.photo}
-                    />
-                ))}
+        <div className="wishlist-page">
+            <header>
+                <div>
+                    <h2>My wishlist</h2>
+                    {!isLoading && !isError && (
+                        <p>{items.length} {items.length === 1 ? "item" : "items"} saved</p>
+                    )}
+                </div>
+                <Link to="/search">Continue shopping</Link>
+            </header>
+
+            {isLoading ? (
+                <ProductSkeleton length={8} layout="grid" />
+            ) : isError ? (
+                // Before the empty branch: a failed load left `items` empty and
+                // claimed nothing was saved, which for a wishlist reads as the
+                // saved items having been lost.
+                <ErrorState
+                    title="Couldn't load your wishlist"
+                    message={queryErrorMessage(error)}
+                    onRetry={refetch}
+                />
+            ) : items.length === 0 ? (
+                // Previously an empty wishlist rendered a blank page.
+                <div className="empty-state">
+                    <FaHeart />
+                    <h2>Nothing saved yet</h2>
+                    <p>Tap the heart on any product to keep it here for later.</p>
+                    <Link to="/search" className="btn">Browse products</Link>
+                </div>
+            ) : (
+                <div className="wishlist-container">
+                    {items.map((i) => (
+                        <ProductCart
+                            key={i._id}
+                            productId={i._id}
+                            name={i.name}
+                            price={i.price}
+                            stock={i.stock}
+                            category={i.category}
+                            hasVariants={i.hasVariants}
+                            handler={addToCartHandler}
+                            photo={i.photo}
+                        />
+                    ))}
+                </div>
+            )}
         </div>
     );
 };

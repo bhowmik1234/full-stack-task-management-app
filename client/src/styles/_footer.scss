@@ -1,0 +1,143 @@
+@use "tokens" as *;
+@use "mixins" as *;
+@use "base" as *;
+
+// Site footer. Sits on a slightly lifted surface so it reads as a distinct
+// band rather than bleeding into the page background.
+
+.footer {
+  margin-top: auto;
+  background-color: $ink-800;
+  border-top: 1px solid $ink-500;
+  color: $text-muted;
+  padding: 3.5rem clamp(1rem, 4vw, 3rem) 1.5rem;
+  font-size: 0.9rem;
+
+  &__content {
+    max-width: $content-max;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(9rem, 1fr)) minmax(18rem, 1.6fr);
+    gap: 2.5rem;
+
+    @include upto($bp-lg) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    @include upto($bp-sm) {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+  }
+
+  &__title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: $text-strong;
+    margin-bottom: 1rem;
+  }
+
+  &__list {
+    list-style: none;
+    @include flex(column, flex-start, flex-start, 0.6rem);
+
+    a {
+      color: $text-muted;
+
+      &:hover {
+        color: $accent;
+      }
+    }
+  }
+
+  &__newsletter {
+    p {
+      margin-bottom: 1rem;
+      max-width: 28rem;
+    }
+  }
+
+  &__form {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    max-width: 26rem;
+
+    input {
+      @include control;
+      flex: 1;
+      min-width: 0;
+    }
+
+    button {
+      @extend %btn-base;
+      background-color: $accent;
+      color: $paper;
+
+      &:hover {
+        background-color: $accent-hover;
+      }
+    }
+
+    @include upto($bp-sm) {
+      flex-direction: column;
+    }
+  }
+
+  &__social {
+    display: flex;
+    gap: 0.5rem;
+
+    a {
+      @include flex(row, center, center, 0);
+      @include square(2.25rem);
+      border: 1px solid $ink-500;
+      border-radius: 50%;
+      // The old rule painted these in the surface colour, which made them
+      // invisible against the footer.
+      color: $text-muted;
+      font-size: 0.9rem;
+      transition: all $transition;
+
+      &:hover {
+        color: $paper;
+        background-color: $accent;
+        border-color: $accent;
+        transform: translateY(-2px);
+      }
+    }
+  }
+
+  &__bottom {
+    max-width: $content-max;
+    margin: 3rem auto 0;
+    padding-top: 1.5rem;
+    border-top: 1px solid $ink-500;
+    @include flex(row, space-between, center, 1rem);
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+
+    @include upto($bp-md) {
+      flex-direction: column;
+      text-align: center;
+    }
+  }
+
+  &__legal {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.25rem;
+
+    a {
+      color: $text-muted;
+
+      &:hover {
+        color: $accent;
+      }
+    }
+  }
+}

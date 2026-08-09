@@ -3,15 +3,9 @@ import '../styles/loader.scss';
 
 const Loader = () => {
   return (
-    <div className="loader">
-      <div className="cube">
-        <div className="face front"></div>
-        <div className="face back"></div>
-        <div className="face left"></div>
-        <div className="face right"></div>
-        <div className="face top"></div>
-        <div className="face bottom"></div>
-      </div>
+    <div className="loader" role="status" aria-live="polite">
+      <div className="spinner" />
+      <span>Loading</span>
     </div>
   );
 };
@@ -41,3 +35,20 @@ export const Skeleton = ({
     </div>
   );
 };
+
+// Card-shaped placeholders. A rail or grid of products loads into a specific
+// silhouette; filling it with the bar Skeleton made the layout jump once the
+// data arrived.
+export const ProductSkeleton = ({
+  length = 4,
+  layout = "rail",
+}: {
+  length?: number;
+  layout?: "rail" | "grid";
+}) => (
+  <div className={`skeleton-cards${layout === "grid" ? " skeleton-cards--grid" : ""}`}>
+    {Array.from({ length }, (_, idx) => (
+      <span key={idx} />
+    ))}
+  </div>
+);

@@ -1,185 +1,157 @@
-.product-search-page {
-    padding: 2rem;
-    @include flex(row, flex-start, stretch, 2rem);
-    min-height: calc(100vh - 6.5vh);
-    background-color: $secondary-color;
-    color: $text-color;
-  
-    // > aside {
-    //   background-color: $primary-color;
-    //   min-width: 20rem;
-    //   box-shadow: 0px 0px 5px $text-color;
-    //   color: $text-color;
-    //   padding: 2rem;
-    //   @include flex(column, flex-start, stretch, 0.5rem);
-    //   > h2 {
-    //     @include heading;
-    //   }
-  
-    //   > div {
-    //     > input,
-    //     > select {
-    //       @include inputStyle(
-    //         100%,
-    //         1rem,
-    //         $primary-color,
-    //         1px solid $text-color
-    //       );
-    //       color: $text-color;
-    //       border-radius: 10px;
-    //       margin: 0.5rem;
-    //     }
-    //   }
-    // }
+@use "tokens" as *;
+@use "mixins" as *;
+@use "base" as *;
+@use "product-card" as *;
 
-    aside {
-      background-color: $primary-color;
-      min-width: 20rem;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      color: $text-color;
-      padding: 2rem;
-      border-radius: 8px;
-      @include flex(column, flex-start, stretch, 1rem);
-      font-family: 'Roboto', sans-serif;
-    
-      > h2 {
-        @include heading;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        border-bottom: 2px solid $second-color;
-        padding-bottom: 0.5rem;
-      }
-    
-      > div {
-        background-color: $secondary-color;
-        padding: 1rem;
-        border-radius: 8px;
-        transition: all 0.3s ease;
-    
+// Search / browse page: a sticky filter rail beside a responsive result grid.
+// Below $bp-lg the rail becomes a collapsible panel above the results.
+
+.product-search-page {
+  display: grid;
+  grid-template-columns: 17rem minmax(0, 1fr);
+  align-items: start;
+  gap: 2rem;
+
+  @include upto($bp-lg) {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .filters {
+    position: sticky;
+    top: calc(#{$header-height} + 1rem);
+    background-color: $ink-700;
+    border: 1px solid $ink-500;
+    border-radius: $radius-lg;
+    padding: 1.5rem;
+    @include flex(column, flex-start, stretch, 1.5rem);
+
+    @include upto($bp-lg) {
+      position: static;
+    }
+
+    > h2 {
+      @include flex(row, space-between, center, 0.5rem);
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: $text-muted;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid $ink-500;
+
+      button {
+        border: none;
+        background: none;
+        color: $accent;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: none;
+        cursor: pointer;
+
         &:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-    
-        > h4 {
-          font-size: 1rem;
-          font-weight: 500;
-          margin-bottom: 0.5rem;
-          color: $text-color;
-        }
-    
-        > input,
-        > select {
-          @include inputStyle(
-            100%,
-            0.75rem 1rem,
-            white,
-            1px solid $secondary-color
-          );
-          color: $text-color;
-          background-color: $primary-color;
-          border-radius: 8px;
-          font-size: 0.9rem;
-          appearance: none;
-          cursor: pointer;
-  
-        }
-    
-        > select {
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M10.293 3.293L6 7.586 1.707 3.293A1 1 0 00.293 4.707l5 5a1 1 0 001.414 0l5-5a1 1 0 10-1.414-1.414z'/%3E%3C/svg%3E");
-          background-repeat: no-repeat;
-          background-position: right 1rem center;
-          padding-right: 2.5rem;
-        }
-    
-        > input[type="range"] {
-          -webkit-appearance: none;
-          width: 100%;
-          height: 5px;
-          border-radius: 5px;
-          background: #ddd;
-          outline: none;
-          padding: 0;
-          margin: 0;
-    
-          &::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: $second-color;
-            cursor: pointer;
-            transition: all 0.3s ease-in-out;
-    
-            &:hover {
-              background: darken($second-color, 10%);
-              transform: scale(1.1);
-            }
-          }
-    
-          &::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            border: 0;
-            border-radius: 50%;
-            background: $second-color;
-            cursor: pointer;
-            transition: background 0.3s ease-in-out;
-    
-            &:hover {
-              background: darken($second-color, 10%);
-            }
-          }
+          color: $accent-hover;
         }
       }
     }
-  
-    > main {
-      width: 100%;
-      padding: 0 2rem;
-  
-  
-      .search-product-list {
-        @include flex(row, flex-start, flex-start);
-        // background-color: red;
-        flex-wrap: wrap;
-        height: calc(100% - 10rem);
-        overflow-y: auto;
-        > h1{
-          color: $text-color;
-          font-size: 2rem;
-          text-align: center; 
-          width: 100%;
-          margin-bottom: 1rem; 
+
+    .filter-group {
+      @include flex(column, flex-start, stretch, 0.6rem);
+
+      > h4 {
+        @include flex(row, space-between, baseline, 0.5rem);
+        font-family: $font-body;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: $text;
+
+        span {
+          font-weight: 600;
+          color: $accent;
         }
-        // .product-items {
-        //   display: grid;
-        //   background-color: red;
-        //   grid-template-columns: repeat(4, 1fr);
-        //   gap: 1rem;
-        //   width: 100%;
-        //   box-sizing: border-box;
-        // }
       }
-      // $p: 0.5rem 1rem, $bg, $color
-      article {
-        @include flex;
-        color: $text-color;
-        > button {
-          padding: 0.5rem 1rem;
-          @include flex;
-          background-color: $second-color;
-          outline: none;
-          border: none;
-        //   @include btn(0.5rem 1rem, $color3, $color1);
-          border-radius: 10px;
-          &:disabled {
-            cursor: not-allowed;
-            opacity: 0.5;
-            color: $text-color;
-          }
-        }
+
+      > select {
+        @include control;
+        @include select-caret;
+      }
+
+      > input[type="range"] {
+        @include range-input;
+      }
+
+      .range-bounds {
+        @include flex(row, space-between, center, 0.5rem);
+        font-size: 0.75rem;
+        color: $text-faint;
       }
     }
   }
+
+  > main {
+    min-width: 0;
+    @include flex(column, flex-start, stretch, 1.5rem);
+  }
+
+  .search-summary {
+    @include flex(row, space-between, center, 1rem);
+    flex-wrap: wrap;
+
+    h1 {
+      font-size: 1.35rem;
+
+      span {
+        color: $text-muted;
+        font-weight: 400;
+      }
+    }
+
+    > p {
+      font-size: 0.875rem;
+      color: $text-muted;
+    }
+  }
+
+  .search-product-list {
+    @include product-grid;
+  }
+
+  // No hits — the page still shows a fallback rail of current products.
+  .search-fallback {
+    @include flex(column, flex-start, stretch, 1.5rem);
+
+    > h2 {
+      font-size: 1.1rem;
+      color: $text-muted;
+      font-weight: 500;
+    }
+  }
+
+  // Pagination
+  article {
+    @include flex(row, center, center, 1rem);
+    padding-top: 1rem;
+
+    > button {
+      @extend %btn-base;
+      background-color: $ink-700;
+      border-color: $ink-500;
+      color: $text-strong;
+      padding: 0.55rem 1.25rem;
+      font-size: 0.875rem;
+
+      &:hover:not(:disabled) {
+        border-color: $accent;
+        color: $accent;
+      }
+    }
+
+    > span {
+      font-size: 0.875rem;
+      color: $text-muted;
+      min-width: 6rem;
+      text-align: center;
+    }
+  }
+}

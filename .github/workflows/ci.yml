@@ -1,0 +1,95 @@
+name: CI
+
+# Two independent npm packages, no workspace tooling — so two jobs rather than
+# one with a matrix. They share nothing, fail for different reasons, and a
+# matrix would only make the failing one harder to find.
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+
+concurrency:
+  # A second push to the same branch makes the first run's answer irrelevant.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches the node:24-alpine base image the containers use. A CI that
+          # builds on a different major is a CI that can pass while the image
+          # fails.
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      # The Prisma client is generated into src/generated/ and is no longer
+      # committed, so nothing typechecks until this has run.
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # No database. Every test is a pure function over plain objects — the
+      # pricing and refund arithmetic, the coupon rules, the unsubscribe HMAC,
+      # the variant form parser. See backend/vitest.config.ts for what that
+      # deliberately leaves uncovered.
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npx tsc
+
+  client:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      # `npm run build` is `tsc && vite build`, so this covers the typecheck and
+      # both entry points — the storefront and the admin console.
+      #
+      # The VITE_* values are baked in at build time and none is secret, but a
+      # missing one is a compile error via src/vite-env.d.ts. These are
+      # throwaway values that only have to exist.
+      - name: Build
+        run: npm run build
+        env:
+          VITE_SERVER: http://localhost:3000
+          VITE_ADMIN_SERVER: http://localhost:3000
+          VITE_FIREBASE_KEY: ci
+          VITE_FIREBASE_DOMAIN: ci
+          VITE_FIREBASE_PROJECT_ID: ci
+          VITE_FIREBASE_BUCKET: ci
+          VITE_FIREBASE_SENDER_ID: ci
+          VITE_FIREBASE_APPID: ci
+          VITE_FIREBASE_MEASUREMENT_ID: ci

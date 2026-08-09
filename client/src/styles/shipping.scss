@@ -1,121 +1,250 @@
+@use "tokens" as *;
+@use "mixins" as *;
+@use "base" as *;
 
+// Shipping address form and the payment step.
 
+// Cart → Shipping → Payment progress indicator, shared by both pages.
+.checkout-steps {
+  @include flex(row, center, center, 0);
+  margin: 0 auto 2.5rem;
+  max-width: 34rem;
+  width: 100%;
 
-.shipping-container {
-    @include flex(column);
-    background-color: $secondary-color;
-    min-height: 100vh;
-    font-family: "Poppins", sans-serif;
+  &__step {
+    @include flex(column, center, center, 0.4rem);
+    flex: 0 0 auto;
+    color: $text-faint;
+    font-size: 0.8rem;
+    font-weight: 500;
 
-    .back-btn {
-        position: absolute;
-        top: 6rem;
-        left: 2rem;
-        background-color: $second-color;
-        color: $text-color;
-        border: none;
-        border-radius: 50%;
-        width: 3rem;
-        height: 3rem;
-        @include flex;
-        cursor: pointer;
-        transition: all 0.3s ease;
-
-        &:hover {
-            background-color: darken($second-color, 10%);
-            transform: translateX(-5px);
-        }
+    span {
+      @include flex(row, center, center, 0);
+      @include square(2rem);
+      border-radius: 50%;
+      border: 1px solid $ink-500;
+      background-color: $ink-700;
+      font-size: 0.8rem;
+      font-weight: 600;
     }
 
-    .shipping-form {
-        background-color: $primary-color;
-        color: $text-color;
-        border-radius: 10px;
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-        padding: 3rem;
-        width: 100%;
-        max-width: 500px;
-        @include flex(column, flex-start, stretch, 1.5rem);
+    &--done {
+      color: $text-muted;
 
-        h1 {
-            @include heading;
-            margin-bottom: 0;
-        }
-
-        p {
-            color: lighten($text-color, 20%);
-            margin-bottom: 1rem;
-        }
-
-        .form-group {
-            position: relative;
-
-            .input-icon {
-                position: absolute;
-                left: 1rem;
-                top: 50%;
-                transform: translateY(-50%);
-                color: $second-color;
-            }
-
-            input,
-            select {
-                width: 100%;
-                padding: 1rem 1rem 1rem 3rem;
-                background-color: $primary-color;
-                color: $text-color;
-                border-radius: 5px;
-                font-size: 1rem;
-                outline: none;
-                border: 1px solid $text-color;
-                transition: all 0.3s ease;
-
-                // &:focus {
-                //   border-color: $accent-color;
-                //   box-shadow: 0 0 0 2px rgba($accent-color, 0.2);
-                // }
-            }
-
-            select {
-                appearance: none;
-                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M10.293 3.293L6 7.586 1.707 3.293A1 1 0 00.293 4.707l5 5a1 1 0 001.414 0l5-5a1 1 0 10-1.414-1.414z'/%3E%3C/svg%3E");
-                background-repeat: no-repeat;
-                background-position: right 1rem center;
-                padding-right: 2.5rem;
-            }
-        }
-
-        .submit-btn {
-            @include btn(1rem, $second-color, $text-color);
-            border-radius: 5px;
-            font-size: 1.05rem;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            font-weight: 600;
-            margin-top: 1rem;
-
-            &:hover {
-                background-color: darken($second-color, 10%);
-            }
-        }
+      span {
+        background-color: $ink-600;
+        border-color: $ink-400;
+        color: $text-strong;
+      }
     }
+
+    &--current {
+      color: $text-strong;
+
+      span {
+        background-color: $accent;
+        border-color: $accent;
+        color: $paper;
+      }
+    }
+  }
+
+  &__line {
+    flex: 1;
+    height: 1px;
+    background-color: $ink-500;
+    margin: 0 0.75rem;
+    margin-bottom: 1.5rem;
+  }
 }
 
-.checkout {
-    height: 100vh;
-    color: $text-color;
-    @include flex(row, center, center, 4rem);
+.shipping-container {
+  @include flex(column, flex-start, center, 0);
+  position: relative;
 
-    .checkout-container {
-        color: $text-color;
-        background-color: #dde6ed;
-        border-radius: 1rem;
-        padding: 1rem;
-        height: 40%;
-        font-size: 2rem;
+  .back-btn {
+    align-self: flex-start;
+    @include flex(row, center, center, 0.5rem);
+    padding: 0.5rem 0.9rem 0.5rem 0.7rem;
+    margin-bottom: 1.5rem;
+    background-color: transparent;
+    border: 1px solid $ink-500;
+    border-radius: $radius-pill;
+    color: $text-muted;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all $transition;
 
-        > form > button {
-            background-color: $second-color;
-        }
+    &:hover {
+      border-color: $accent;
+      color: $accent;
     }
+  }
+
+  .shipping-form {
+    width: 100%;
+    max-width: 32rem;
+    padding: 2rem;
+    background-color: $ink-700;
+    border: 1px solid $ink-500;
+    border-radius: $radius-lg;
+    @include flex(column, flex-start, stretch, 1rem);
+
+    @include upto($bp-sm) {
+      padding: 1.5rem 1.25rem;
+    }
+
+    h1 {
+      font-size: 1.35rem;
+    }
+
+    > p {
+      color: $text-muted;
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .form-group {
+      position: relative;
+
+      .input-icon {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: $text-faint;
+        font-size: 0.9rem;
+        pointer-events: none;
+        transition: color $transition;
+      }
+
+      &:focus-within .input-icon {
+        color: $accent;
+      }
+
+      input,
+      select {
+        @include control;
+        padding-left: 2.75rem;
+      }
+
+      select {
+        @include select-caret;
+      }
+    }
+
+    .submit-btn {
+      @extend %btn-base;
+      margin-top: 0.75rem;
+      background-color: $accent;
+      color: $paper;
+      padding: 0.9rem 1.5rem;
+
+      &:hover:not(:disabled) {
+        background-color: $accent-hover;
+        box-shadow: $shadow-accent;
+      }
+    }
+  }
+}
+
+// ------------------------------------------------------------- pay step ----
+.checkout {
+  @include flex(column, flex-start, center, 0);
+}
+
+.checkout-container {
+  width: 100%;
+  max-width: 32rem;
+  padding: 2rem;
+  background-color: $ink-700;
+  border: 1px solid $ink-500;
+  border-radius: $radius-lg;
+
+  @include upto($bp-sm) {
+    padding: 1.5rem 1.25rem;
+  }
+
+  > h1 {
+    font-size: 1.35rem;
+    margin-bottom: 0.35rem;
+  }
+
+  > p {
+    color: $text-muted;
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+  }
+
+  > form {
+    @include flex(column, flex-start, stretch, 1.5rem);
+
+    > button {
+      @extend %btn-base;
+      background-color: $accent;
+      color: $paper;
+      padding: 0.9rem 1.5rem;
+      font-size: 1rem;
+
+      &:hover:not(:disabled) {
+        background-color: $accent-hover;
+        box-shadow: $shadow-accent;
+      }
+    }
+  }
+}
+
+// Saved-address picker. Only rendered when the customer has an address book;
+// a first-time buyer sees the form exactly as before.
+.shipping-form {
+  &__saved {
+    @include flex(column, flex-start, stretch, 0.5rem);
+    margin-bottom: 0.5rem;
+
+    > label {
+      @include flex(row, flex-start, flex-start, 0.75rem);
+      padding: 0.85rem 1rem;
+      background-color: $ink-600;
+      border: 1px solid $ink-500;
+      border-radius: $radius;
+      cursor: pointer;
+      font-size: 0.88rem;
+      color: $text-muted;
+      transition: border-color $transition, background-color $transition;
+
+      input {
+        margin-top: 0.2rem;
+        accent-color: $accent;
+        cursor: pointer;
+      }
+
+      strong {
+        display: block;
+        color: $text-strong;
+        font-size: 0.92rem;
+      }
+
+      &:hover {
+        border-color: $ink-400;
+      }
+
+      &.is-selected {
+        border-color: $accent;
+        background-color: $accent-soft;
+      }
+    }
+  }
+
+  &__save {
+    @include flex(row, flex-start, center, 0.6rem);
+    font-size: 0.88rem;
+    color: $text-muted;
+    cursor: pointer;
+
+    input {
+      accent-color: $accent;
+      @include square(1rem);
+      cursor: pointer;
+    }
+  }
 }

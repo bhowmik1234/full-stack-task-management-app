@@ -1,0 +1,2013 @@
+// The admin console's stylesheet — the only one admin.html loads.
+//
+// Standalone on purpose: it shares no partial with the storefront. Two reasons.
+// The console is a different product with a different job (dense, neutral,
+// legible at a glance) and it should look unmistakably unlike the shop, so an
+// operator always knows which app they are in — the storefront's rose accent is
+// deliberately absent here. And because it imports nothing, no storefront style
+// change can reach the console by accident, which is what the old shared
+// app.scss made routine.
+//
+// Conventions: `l-` lays things out, `c-` is a component, `is-`/`u-` are state
+// and utilities. Everything is a token below; nothing hard-codes a hex inline.
+
+// -------------------------------------------------------------- tokens ------
+$bg: #0b0d11; // page
+$surface: #12151b; // panel behind cards
+$card: #171b23; // card
+$raised: #1d222c; // inputs, hover
+$line: #232833; // hairline
+$line-strong: #2e3442; // border that has to be seen
+
+$text: #e8eaef;
+$text-2: #aab1bf;
+$text-3: #8b93a3;
+
+// Data blue. Doubles as the interaction colour so the chart, the active nav
+// item and the primary button are visibly one system.
+$accent: #3987e5;
+$accent-hover: #4a94ea;
+$accent-soft: rgba(57, 135, 229, 0.14);
+$accent-ring: rgba(57, 135, 229, 0.45);
+
+// Status. Fixed roles, never reused as "another series colour", and always
+// rendered next to a word — colour never carries the meaning alone.
+$good: #0ca30c;
+$warning: #fab219;
+$critical: #d03b3b;
+
+$radius: 8px;
+$radius-lg: 12px;
+$shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+
+$sidebar: 236px;
+$page-max: 1320px;
+$font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+@mixin upto($bp) {
+  @media (max-width: $bp) {
+    @content;
+  }
+}
+
+// ---------------------------------------------------------------- base ------
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: $bg;
+  color: $text;
+  font-family: $font;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+p,
+figure,
+dl,
+dd {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+// One focus treatment for the whole console. Keyboard-only, so a mouse click
+// doesn't leave a ring behind on every button it touches.
+:focus-visible {
+  outline: 2px solid $accent-ring;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.u-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.c-muted {
+  color: $text-3;
+  font-size: 0.85rem;
+}
+
+// --------------------------------------------------------------- shell ------
+.l-shell {
+  display: grid;
+  grid-template-columns: $sidebar 1fr;
+  min-height: 100vh;
+}
+
+.l-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.25rem 0.875rem;
+  background: $surface;
+  border-right: 1px solid $line;
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0 0.5rem;
+    font-weight: 600;
+
+    small {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 400;
+      color: $text-3;
+    }
+  }
+
+  &__mark {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: $radius;
+    background: $accent;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+
+  &__foot {
+    margin-top: auto;
+    display: grid;
+    gap: 0.625rem;
+    padding-top: 1rem;
+    border-top: 1px solid $line;
+  }
+}
+
+.l-nav {
+  display: grid;
+  gap: 2px;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: $radius;
+    color: $text-2;
+    font-size: 0.9rem;
+    transition: background-color 0.15s, color 0.15s;
+
+    svg {
+      flex-shrink: 0;
+      font-size: 1rem;
+    }
+
+    &:hover {
+      background: $raised;
+      color: $text;
+    }
+
+    &--active {
+      background: $accent-soft;
+      color: $accent;
+      font-weight: 500;
+    }
+  }
+}
+
+.l-account {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0 0.25rem;
+  min-width: 0;
+
+  &__avatar {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: $raised;
+    color: $text-2;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  &__id {
+    min-width: 0;
+
+    strong,
+    small {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    strong {
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    small {
+      font-size: 0.72rem;
+      color: $text-3;
+    }
+  }
+}
+
+.l-main {
+  min-width: 0;
+}
+
+.l-navtoggle,
+.l-scrim {
+  display: none;
+}
+
+.l-page {
+  max-width: $page-max;
+  margin: 0 auto;
+  padding: 1.75rem 1.75rem 4rem;
+
+  &--narrow {
+    max-width: 720px;
+  }
+}
+
+.l-stack {
+  display: grid;
+  gap: 1.25rem;
+  align-content: start;
+
+  // A background refetch keeps the old numbers on screen rather than flashing a
+  // loader, but they must not look current while they are being replaced.
+  &.is-stale {
+    opacity: 0.55;
+    transition: opacity 0.15s;
+    pointer-events: none;
+  }
+}
+
+.l-statgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1rem;
+}
+
+.l-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  align-items: start;
+
+  &--wide {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  }
+
+  @include upto(980px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+@include upto(900px) {
+  .l-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .l-sidebar {
+    position: fixed;
+    z-index: 30;
+    width: $sidebar;
+    // Off-canvas until asked for; transform rather than `left` so it composites.
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+  }
+
+  .l-shell--nav-open .l-sidebar {
+    transform: none;
+  }
+
+  .l-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    border: 0;
+    background: rgba(0, 0, 0, 0.6);
+  }
+
+  .l-navtoggle {
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    margin: 1rem 0 0 1rem;
+    border: 1px solid $line-strong;
+    border-radius: $radius;
+    background: $card;
+    cursor: pointer;
+  }
+
+  .l-page {
+    padding: 1rem 1rem 3rem;
+  }
+}
+
+// ---------------------------------------------------------- page header -----
+.c-pagehead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+
+  h1 {
+    font-size: 1.375rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  p {
+    margin-top: 0.2rem;
+    font-size: 0.85rem;
+    color: $text-3;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+  }
+}
+
+// ---------------------------------------------------------------- card ------
+.c-card {
+  background: $card;
+  border: 1px solid $line;
+  border-radius: $radius-lg;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.875rem 1.125rem;
+    border-bottom: 1px solid $line;
+
+    h2 {
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    p {
+      font-size: 0.78rem;
+      color: $text-3;
+    }
+  }
+
+  &__body {
+    padding: 1.125rem;
+  }
+
+  // The chart needs its own height; everything else is sized by its content.
+  &--chart .c-card__body {
+    padding: 1rem 0.75rem 0.75rem;
+  }
+}
+
+.c-chart {
+  height: 280px;
+}
+
+.c-empty {
+  padding: 1.5rem 0;
+  text-align: center;
+  color: $text-3;
+  font-size: 0.875rem;
+}
+
+.c-note {
+  margin-top: 0.875rem;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: $text-3;
+
+  code {
+    font-size: 0.75rem;
+    color: $text-2;
+  }
+}
+
+.c-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: $accent;
+  font-size: 0.85rem;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// ---------------------------------------------------------------- stat ------
+.c-stat {
+  padding: 1rem 1.125rem;
+  background: $card;
+  border: 1px solid $line;
+  border-radius: $radius-lg;
+
+  &__label {
+    font-size: 0.78rem;
+    color: $text-3;
+  }
+
+  &__value {
+    margin-top: 0.25rem;
+    font-size: 1.6rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__foot {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+    font-size: 0.75rem;
+  }
+
+  &__hint {
+    color: $text-3;
+  }
+}
+
+.c-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+
+  &--good {
+    color: $good;
+  }
+
+  &--bad {
+    color: $critical;
+  }
+
+  &--flat {
+    color: $text-3;
+  }
+}
+
+// ---------------------------------------------------------------- pill ------
+.c-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  white-space: nowrap;
+  border: 1px solid transparent;
+
+  &--good {
+    background: rgba(12, 163, 12, 0.14);
+    color: #4ade4a;
+    border-color: rgba(12, 163, 12, 0.3);
+  }
+
+  &--warning {
+    background: rgba(250, 178, 25, 0.14);
+    color: $warning;
+    border-color: rgba(250, 178, 25, 0.3);
+  }
+
+  &--critical {
+    background: rgba(208, 59, 59, 0.16);
+    color: #f08585;
+    border-color: rgba(208, 59, 59, 0.35);
+  }
+
+  &--info {
+    background: $accent-soft;
+    color: #7db0f0;
+    border-color: rgba(57, 135, 229, 0.3);
+  }
+
+  &--muted {
+    background: $raised;
+    color: $text-2;
+    border-color: $line-strong;
+  }
+}
+
+// -------------------------------------------------------------- buttons -----
+.c-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid $line-strong;
+  border-radius: $radius;
+  background: $raised;
+  color: $text;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, opacity 0.15s;
+
+  &:hover:not(:disabled) {
+    border-color: #3c4353;
+    background: #232936;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &--primary {
+    background: $accent;
+    border-color: $accent;
+    color: #fff;
+
+    &:hover:not(:disabled) {
+      background: $accent-hover;
+      border-color: $accent-hover;
+    }
+  }
+
+  &--ghost {
+    background: transparent;
+  }
+
+  &--danger {
+    background: rgba(208, 59, 59, 0.14);
+    border-color: rgba(208, 59, 59, 0.4);
+    color: #f08585;
+
+    &:hover:not(:disabled) {
+      background: $critical;
+      border-color: $critical;
+      color: #fff;
+    }
+  }
+
+  &--block {
+    width: 100%;
+  }
+
+  &--tiny {
+    padding: 0.25rem 0.55rem;
+    font-size: 0.75rem;
+  }
+}
+
+.c-iconbtn {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 0;
+  border-radius: $radius;
+  background: transparent;
+  color: $text-3;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(208, 59, 59, 0.14);
+    color: #f08585;
+  }
+}
+
+// Destructive actions confirm in place rather than in a modal: the row or the
+// header stays visible, so it is obvious what is about to be deleted.
+.c-confirm,
+.c-rowconfirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: $text-2;
+}
+
+.c-range {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid $line-strong;
+  border-radius: $radius;
+  background: $surface;
+
+  button {
+    padding: 0.3rem 0.65rem;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: $text-3;
+    font-size: 0.8rem;
+    cursor: pointer;
+
+    &:hover {
+      color: $text;
+    }
+
+    &.is-active {
+      background: $raised;
+      color: $text;
+    }
+  }
+}
+
+// --------------------------------------------------------------- table ------
+.c-table {
+  &__search {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.875rem;
+    padding: 0.45rem 0.7rem;
+    border: 1px solid $line-strong;
+    border-radius: $radius;
+    background: $surface;
+    color: $text-3;
+
+    input {
+      flex: 1;
+      min-width: 0;
+      border: 0;
+      background: transparent;
+      font-size: 0.85rem;
+
+      &:focus {
+        outline: none;
+      }
+    }
+
+    &:focus-within {
+      border-color: $accent-ring;
+    }
+  }
+
+  // The console is used on laptops; a wide table scrolls in its own box rather
+  // than pushing the page sideways.
+  &__scroll {
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+
+  th {
+    padding: 0.5rem 0.75rem;
+    color: $text-3;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    border-bottom: 1px solid $line;
+
+    button {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      border: 0;
+      padding: 0;
+      background: none;
+      color: inherit;
+      font: inherit;
+      letter-spacing: inherit;
+      text-transform: inherit;
+      cursor: pointer;
+
+      &:hover {
+        color: $text;
+      }
+    }
+  }
+
+  td {
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid $line;
+    vertical-align: middle;
+  }
+
+  tbody tr {
+    &:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    &.is-clickable {
+      cursor: pointer;
+    }
+
+    &:last-child td {
+      border-bottom: 0;
+    }
+  }
+
+  &__empty {
+    padding: 2rem 0.75rem;
+    text-align: center;
+    color: $text-3;
+  }
+
+  &__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0.875rem;
+    font-size: 0.78rem;
+    color: $text-3;
+
+    div {
+      display: flex;
+      gap: 0.35rem;
+    }
+
+    button {
+      display: grid;
+      place-items: center;
+      width: 1.75rem;
+      height: 1.75rem;
+      border: 1px solid $line-strong;
+      border-radius: 6px;
+      background: $raised;
+      cursor: pointer;
+
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+    }
+  }
+}
+
+.c-thumb {
+  width: 2.25rem;
+  height: 2.25rem;
+  object-fit: cover;
+  border-radius: 6px;
+  background: $raised;
+
+  &--round {
+    border-radius: 50%;
+  }
+}
+
+.c-initial {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: $raised;
+  color: $text-2;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+// ------------------------------------------------------------- bar list -----
+.c-barlist {
+  display: grid;
+  gap: 0.875rem;
+
+  &__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.3rem;
+  }
+
+  &__label {
+    min-width: 0;
+    font-size: 0.85rem;
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    small {
+      margin-left: 0.4rem;
+      color: $text-3;
+      font-size: 0.75rem;
+    }
+  }
+
+  &__value {
+    flex-shrink: 0;
+    font-size: 0.85rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__track {
+    height: 6px;
+    border-radius: 999px;
+    background: $raised;
+    overflow: hidden;
+  }
+
+  &__fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: $accent;
+  }
+}
+
+// ---------------------------------------------------------------- lists -----
+.c-lowstock {
+  display: grid;
+  gap: 0.625rem;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    font-size: 0.85rem;
+  }
+
+  img {
+    width: 2rem;
+    height: 2rem;
+    object-fit: cover;
+    border-radius: 6px;
+    background: $raised;
+  }
+
+  a {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &:hover {
+      color: $accent;
+    }
+  }
+}
+
+.c-orderlist {
+  display: grid;
+  gap: 0.2rem;
+
+  li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    font-size: 0.85rem;
+    border-bottom: 1px solid $line;
+
+    &:last-child {
+      border-bottom: 0;
+    }
+
+    > a:hover {
+      color: $accent;
+    }
+
+    strong {
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  &__meta {
+    grid-column: 1;
+    grid-row: 2;
+    font-size: 0.75rem;
+    color: $text-3;
+  }
+}
+
+.c-lineitems {
+  display: grid;
+  gap: 0.75rem;
+
+  li {
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  img {
+    width: 2.5rem;
+    height: 2.5rem;
+    object-fit: cover;
+    border-radius: 6px;
+    background: $raised;
+  }
+
+  &__qty {
+    grid-column: 2;
+    grid-row: 2;
+    font-size: 0.75rem;
+    color: $text-3;
+  }
+
+  strong {
+    grid-row: span 2;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.c-totals {
+  margin-top: 1.25rem;
+  padding-top: 0.875rem;
+  border-top: 1px solid $line;
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+
+  > div {
+    display: flex;
+    justify-content: space-between;
+  }
+
+  dt {
+    color: $text-3;
+  }
+
+  dd {
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__grand {
+    margin-top: 0.35rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid $line;
+    font-size: 1rem;
+    font-weight: 600;
+
+    dt {
+      color: $text;
+    }
+  }
+}
+
+.c-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+
+  &--stacked {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  dt {
+    font-size: 0.75rem;
+    color: $text-3;
+  }
+
+  dd {
+    margin-top: 0.15rem;
+    font-size: 1.05rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+
+    small {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 400;
+      color: $text-3;
+    }
+  }
+
+  &--stacked dd {
+    font-size: 0.875rem;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+}
+
+// --------------------------------------------------------------- forms ------
+.c-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.c-field {
+  display: grid;
+  gap: 0.35rem;
+  border: 0;
+  padding: 0;
+  margin: 0;
+
+  > label,
+  > legend {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: $text-2;
+    padding: 0;
+  }
+
+  input[type="text"],
+  input[type="tel"],
+  input[type="number"],
+  input[type="search"],
+  textarea {
+    width: 100%;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid $line-strong;
+    border-radius: $radius;
+    background: $surface;
+    font-size: 0.875rem;
+
+    &:focus {
+      outline: none;
+      border-color: $accent;
+      box-shadow: 0 0 0 3px $accent-soft;
+    }
+
+    &::placeholder {
+      color: #5d6472;
+    }
+  }
+
+  textarea {
+    resize: vertical;
+    line-height: 1.55;
+  }
+
+  input[type="file"] {
+    padding: 0.4rem;
+    border: 1px dashed $line-strong;
+    border-radius: $radius;
+    background: $surface;
+    font-size: 0.8rem;
+    color: $text-3;
+
+    &::file-selector-button {
+      margin-right: 0.6rem;
+      padding: 0.3rem 0.6rem;
+      border: 1px solid $line-strong;
+      border-radius: 6px;
+      background: $raised;
+      color: $text;
+      font-size: 0.78rem;
+      cursor: pointer;
+    }
+  }
+
+  small {
+    font-size: 0.75rem;
+    color: $text-3;
+  }
+}
+
+.c-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+
+  @include upto(560px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.c-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+
+  input {
+    width: 1rem;
+    height: 1rem;
+    accent-color: $accent;
+  }
+}
+
+.c-specs {
+  display: grid;
+  gap: 0.5rem;
+
+  &__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.4fr auto;
+    gap: 0.5rem;
+
+    input {
+      width: 100%;
+      padding: 0.4rem 0.6rem;
+      border: 1px solid $line-strong;
+      border-radius: 6px;
+      background: $surface;
+      font-size: 0.82rem;
+
+      &:focus {
+        outline: none;
+        border-color: $accent;
+      }
+    }
+
+    @include upto(560px) {
+      grid-template-columns: 1fr 1fr auto;
+    }
+  }
+}
+
+.c-preview {
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  border: 1px solid $line;
+  border-radius: $radius;
+  background: $surface;
+}
+
+.c-gallery {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+
+  img {
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 6px;
+    background: $surface;
+  }
+}
+
+.c-codeout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid $line-strong;
+  border-radius: $radius;
+  background: $surface;
+
+  code {
+    font-size: 1.05rem;
+    letter-spacing: 0.08em;
+    word-break: break-all;
+  }
+}
+
+// ------------------------------------------------------- sign-in & gate -----
+.c-signin,
+.c-gate {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 1.5rem;
+}
+
+.c-signin__card,
+.c-gate__card {
+  width: 100%;
+  max-width: 380px;
+  display: grid;
+  gap: 0.875rem;
+  padding: 1.75rem;
+  background: $card;
+  border: 1px solid $line;
+  border-radius: $radius-lg;
+  box-shadow: $shadow;
+
+  h1 {
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  > p {
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: $text-3;
+  }
+}
+
+.c-signin__mark {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: $radius;
+  background: $accent;
+  color: #fff;
+  font-weight: 700;
+}
+
+.c-signin__or {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: $text-3;
+  font-size: 0.75rem;
+
+  &::before,
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: $line;
+  }
+}
+
+.c-signin__dev {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.875rem;
+  border-top: 1px dashed $line-strong;
+
+  p {
+    width: 100%;
+    font-size: 0.72rem;
+    color: $text-3;
+  }
+}
+
+// ------------------------------------------------------------- loading ------
+.c-spinner {
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+
+  &--full {
+    min-height: 60vh;
+  }
+
+  &__ring {
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 2px solid $line-strong;
+    border-top-color: $accent;
+    border-radius: 50%;
+    animation: c-spin 0.7s linear infinite;
+  }
+}
+
+@keyframes c-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.c-skeleton {
+  display: grid;
+  gap: 0.5rem;
+
+  span {
+    display: block;
+    border-radius: 6px;
+    background: linear-gradient(90deg, $raised 25%, #262c38 37%, $raised 63%);
+    background-size: 400% 100%;
+    animation: c-shimmer 1.4s ease infinite;
+  }
+}
+
+@keyframes c-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+// Respect the OS setting: the shimmer and the spinner are decoration, and a
+// vestibular trigger is not worth a loading state.
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+// ------------------------------------------------------------- access -------
+// Access management: root's page. Denser than the rest of the console on
+// purpose — an access review means reading every row, and a layout that puts
+// one operator per screen makes that a chore nobody does.
+
+.c-denied {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  padding: 4rem 1.5rem;
+  text-align: center;
+
+  svg {
+    width: 1.75rem;
+    height: 1.75rem;
+    color: $text-3;
+  }
+
+  h1 {
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  p {
+    max-width: 34rem;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: $text-3;
+  }
+
+  code {
+    padding: 0.1rem 0.3rem;
+    background: $raised;
+    border-radius: 4px;
+    font-size: 0.8rem;
+  }
+}
+
+.c-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+
+  > span {
+    display: grid;
+    min-width: 0;
+  }
+
+  strong {
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  small {
+    font-size: 0.75rem;
+    color: $text-3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.c-staff {
+  display: grid;
+  gap: 0.5rem;
+  list-style: none;
+}
+
+.c-staff__row {
+  padding: 0.875rem 1rem;
+  background: $raised;
+  border: 1px solid $line;
+  border-radius: $radius;
+
+  // Suspended is stated in a pill as well; the tint only reinforces it, so a
+  // reader who cannot see the difference loses nothing.
+  &.is-suspended {
+    border-color: rgba(208, 59, 59, 0.35);
+  }
+}
+
+.c-staff__summary {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1.4fr) minmax(8rem, 1fr) minmax(10rem, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+}
+
+.c-staff__meta {
+  display: grid;
+  gap: 0.2rem;
+  justify-items: start;
+
+  small {
+    font-size: 0.75rem;
+    color: $text-3;
+  }
+}
+
+.c-staff__note {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  color: $text-3;
+  font-style: italic;
+}
+
+.c-staffdetail {
+  display: grid;
+  gap: 1rem;
+  margin-top: 0.875rem;
+  padding-top: 0.875rem;
+  border-top: 1px solid $line;
+}
+
+.c-staffdetail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.c-staffdetail__transfer {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed $line;
+
+  p {
+    font-size: 0.8rem;
+    line-height: 1.6;
+    color: $text-2;
+  }
+}
+
+// ------------------------------------------------------- permission picker --
+.c-perms {
+  display: grid;
+  gap: 0.875rem;
+}
+
+.c-perms__presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.c-perms__presetlabel {
+  font-size: 0.75rem;
+  color: $text-3;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.c-perms__group {
+  border: 1px solid $line;
+  border-radius: $radius;
+  padding: 0.75rem 0.875rem 0.5rem;
+
+  legend {
+    padding: 0 0.35rem;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: $text-3;
+  }
+}
+
+.c-perms__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.4rem 0;
+  cursor: pointer;
+
+  input {
+    margin-top: 0.15rem;
+    accent-color: $accent;
+  }
+
+  span {
+    display: grid;
+    gap: 0.1rem;
+  }
+
+  strong {
+    font-size: 0.83rem;
+    font-weight: 500;
+  }
+
+  // The sentence is what makes a grant a decision rather than a guess, so it
+  // is always shown, never a tooltip.
+  small {
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: $text-3;
+  }
+}
+
+// ------------------------------------------------------------ grant flow ----
+.c-grant {
+  display: grid;
+  gap: 1rem;
+}
+
+.c-grant__picked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: $raised;
+  border: 1px solid $line;
+  border-radius: $radius;
+}
+
+.c-grant__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.c-candidates {
+  display: grid;
+  gap: 0.25rem;
+  list-style: none;
+
+  button {
+    width: 100%;
+    padding: 0.5rem 0.625rem;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: $radius;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      background: $raised;
+      border-color: $line-strong;
+    }
+  }
+}
+
+.c-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.625rem;
+  background: $raised;
+  border: 1px solid $line-strong;
+  border-radius: $radius;
+
+  svg {
+    flex: none;
+    color: $text-3;
+  }
+
+  input {
+    flex: 1;
+    padding: 0.5rem 0;
+    background: none;
+    border: 0;
+    color: $text;
+    font: inherit;
+
+    &:focus {
+      outline: none;
+    }
+  }
+
+  &:focus-within {
+    border-color: $accent;
+    box-shadow: 0 0 0 3px $accent-ring;
+  }
+}
+
+.c-hint {
+  font-size: 0.78rem;
+  color: $text-3;
+}
+
+.c-notes {
+  display: grid;
+  gap: 0.5rem;
+  padding-left: 1.1rem;
+
+  li {
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: $text-2;
+  }
+}
+
+// The owner badge in the sidebar. Which account you are signed in as matters
+// most to the person who has two of them.
+.l-account__tag {
+  align-self: center;
+  padding: 0.1rem 0.4rem;
+  background: $accent-soft;
+  border: 1px solid $accent-ring;
+  border-radius: 999px;
+  color: $accent;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+// Why the console offers one provider and the shop offers two. Stated on the
+// sign-in card rather than left to be discovered as a refusal after the popup.
+.c-signin__policy {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: $text-3;
+  text-align: center;
+}
+
+// -------------------------------------------------------------- returns -----
+//
+// The returns desk is a queue of cards rather than a table: a return is worked
+// rather than browsed, and each row carries only the actions its current status
+// permits. A table would spend its width on columns an operator does not read
+// and leave nowhere for the item list and the two notes.
+
+.c-returns {
+  display: grid;
+  gap: 1rem;
+
+  &__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+
+    > div {
+      display: grid;
+      gap: 0.2rem;
+    }
+  }
+
+  &__order {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: $text;
+
+    &:hover {
+      color: $accent;
+    }
+  }
+
+  &__meta {
+    font-size: 0.78rem;
+    color: $text-3;
+  }
+
+  // What to do next, in a sentence. The status says where the row is; this says
+  // whose turn it is, which is the thing an operator is actually scanning for.
+  &__next {
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+    color: $text-2;
+  }
+
+  &__facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin: 0.9rem 0;
+
+    dt {
+      font-size: 0.7rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: $text-3;
+      margin-bottom: 0.2rem;
+    }
+
+    dd {
+      font-size: 0.85rem;
+      color: $text;
+    }
+  }
+
+  &__items {
+    display: grid;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border: 1px solid $line;
+    border-radius: $radius;
+    background: $surface;
+
+    li {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.82rem;
+      color: $text-2;
+    }
+
+    img {
+      width: 2rem;
+      height: 2rem;
+      object-fit: cover;
+      border-radius: 4px;
+    }
+  }
+
+  &__qty {
+    margin-left: auto;
+    color: $text-3;
+  }
+
+  &__price {
+    min-width: 5rem;
+    text-align: right;
+    color: $text;
+  }
+
+  &__note {
+    margin-top: 0.7rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: $radius;
+    background: $raised;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: $text-2;
+
+    strong {
+      color: $text;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 1rem;
+  }
+}
+
+// Status colours for the returns queue. Green and red are never adjacent in the
+// list order, which is the same rule the analytics charts follow — that pair is
+// the classic colour-vision failure — and every pill carries its status as text
+// regardless, so the colour is never the only signal.
+.c-pill {
+  &.is-requested {
+    background: $accent-soft;
+    color: #7db0f0;
+    border-color: rgba(57, 135, 229, 0.3);
+  }
+
+  &.is-approved {
+    background: rgba(250, 178, 25, 0.14);
+    color: $warning;
+    border-color: rgba(250, 178, 25, 0.3);
+  }
+
+  &.is-received {
+    background: rgba(146, 108, 232, 0.16);
+    color: #b49af0;
+    border-color: rgba(146, 108, 232, 0.32);
+  }
+
+  &.is-refunded {
+    background: rgba(12, 163, 12, 0.14);
+    color: #4ade4a;
+    border-color: rgba(12, 163, 12, 0.3);
+  }
+
+  &.is-rejected {
+    background: rgba(208, 59, 59, 0.16);
+    color: #f08585;
+    border-color: rgba(208, 59, 59, 0.35);
+  }
+
+  &.is-cancelled {
+    background: $raised;
+    color: $text-2;
+    border-color: $line-strong;
+  }
+}
+
+// ------------------------------------------------------- dispatch form ------
+//
+// Shown in place of "Mark as Shipped" rather than as a separate screen: this
+// transition is what sends the dispatch email, so tracking captured anywhere
+// else would arrive in no message at all.
+
+.c-ship-form {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.9rem;
+  border: 1px solid $line-strong;
+  border-radius: $radius;
+  background: $surface;
+
+  label {
+    display: grid;
+    gap: 0.3rem;
+
+    span {
+      font-size: 0.78rem;
+      color: $text-2;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+  }
+}
+
+// Standalone input, for the handful of places that are not inside a `.c-field`.
+.c-input {
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid $line-strong;
+  border-radius: $radius;
+  background: $surface;
+  color: $text;
+  font-size: 0.875rem;
+  font-family: inherit;
+
+  &:focus {
+    outline: none;
+    border-color: $accent;
+    box-shadow: 0 0 0 3px $accent-soft;
+  }
+
+  &::placeholder {
+    color: #5d6472;
+  }
+}
+
+// ------------------------------------------------------------ inventory -----
+//
+// The overview's stock panel. Two counts and a capped list: without the counts
+// the panel can only say "8 products are low" whether the real figure is 8 or
+// 800, and out-of-stock is separated from low because they are different jobs —
+// one is something to reorder, the other is a product the shop is advertising
+// and cannot sell.
+
+.c-stock-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin-bottom: 0.9rem;
+
+  > div {
+    display: grid;
+    gap: 0.15rem;
+  }
+
+  dt,
+  .c-stock-summary__label {
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $text-3;
+  }
+
+  strong {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: $text;
+  }
+
+  .is-critical {
+    color: #f08585;
+  }
+}
+
+// ------------------------------------------------------------- variants -----
+//
+// The product form's option and combination editor. A table rather than a list
+// of cards because the operator's job here is comparing a column — every price,
+// every stock level — and a card layout makes that a scroll instead of a glance.
+
+.c-variants {
+  display: grid;
+  gap: 0.9rem;
+
+  &__option {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr auto;
+    align-items: end;
+    gap: 0.75rem;
+
+    label {
+      display: grid;
+      gap: 0.3rem;
+
+      span {
+        font-size: 0.78rem;
+        color: $text-2;
+      }
+    }
+
+    @media (max-width: 720px) {
+      grid-template-columns: 1fr;
+      align-items: stretch;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    // A three-option grid is wide; it scrolls inside itself rather than pushing
+    // the whole form sideways.
+    display: block;
+    overflow-x: auto;
+
+    th {
+      padding: 0.5rem 0.6rem;
+      text-align: left;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: $text-3;
+      border-bottom: 1px solid $line-strong;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 0.4rem 0.6rem;
+      border-bottom: 1px solid $line;
+      color: $text;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    input {
+      min-width: 6rem;
+    }
+  }
+}
+
+.c-note.is-warning {
+  color: $warning;
+}
+
+// Present for screen readers, absent on screen. Used for the header of a column
+// that holds only buttons, which needs a name but not a visible one.
+.c-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

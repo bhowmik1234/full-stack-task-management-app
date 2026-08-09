@@ -1,0 +1,505 @@
+@use "tokens" as *;
+@use "mixins" as *;
+
+// Base layer: reset, typography, and the shared primitives (buttons, inputs,
+// section headers, empty states, badges) that every page composes from.
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: $font-body;
+  font-size: 16px;
+  line-height: 1.55;
+  color: $text;
+  background-color: $ink-900;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+
+}
+
+// Pages sit between the header and the footer; this keeps a short page (empty
+// cart, "no orders") from leaving the footer floating mid-screen.
+.suspense-outlet {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+
+  > * {
+    flex: 1;
+  }
+}
+
+h1,
+h2,
+h3,
+h4,
+h5 {
+  font-family: $font-display;
+  color: $text-strong;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  text-decoration: none;
+  color: $accent;
+  transition: color $transition;
+
+  &:hover {
+    color: $accent-hover;
+  }
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+// Visible keyboard focus everywhere. The old styles set `outline: none` on
+// most controls, which left keyboard users with no indication at all.
+:focus-visible {
+  outline: 2px solid $accent;
+  outline-offset: 2px;
+  border-radius: $radius-sm;
+}
+
+::selection {
+  background: $accent;
+  color: $paper;
+}
+
+// Dark, unobtrusive scrollbars so the light default doesn't cut the page.
+* {
+  scrollbar-width: thin;
+  scrollbar-color: $ink-500 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: $ink-500;
+  border-radius: $radius-pill;
+
+  &:hover {
+    background: $ink-400;
+  }
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.red {
+  color: $danger;
+}
+
+.purple {
+  color: #8b7bd8;
+}
+
+.green {
+  color: $success;
+}
+
+// ---------------------------------------------------------------- layout ---
+.page {
+  width: 100%;
+  max-width: $page-max;
+  margin: 0 auto;
+  padding: 2.5rem clamp(1rem, 4vw, 3rem) 4rem;
+
+  @include upto($bp-md) {
+    padding: 1.5rem 1rem 3rem;
+  }
+}
+
+// Heading + optional link, used above every product rail and grid.
+.section-head {
+  @include flex(row, space-between, flex-end, 1rem);
+  margin-bottom: 1.25rem;
+
+  h2 {
+    font-size: clamp(1.25rem, 2.5vw, 1.6rem);
+    letter-spacing: -0.01em;
+  }
+
+  p {
+    color: $text-muted;
+    font-size: 0.9rem;
+    margin-top: 0.25rem;
+  }
+
+  a {
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+}
+
+// ---------------------------------------------------------------- buttons ---
+%btn-base {
+  @include flex(row, center, center, 0.5rem);
+  font-family: $font-body;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border: 1px solid transparent;
+  border-radius: $radius;
+  cursor: pointer;
+  transition: background-color $transition, border-color $transition,
+    color $transition, transform $transition, box-shadow $transition;
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.btn {
+  @extend %btn-base;
+  background-color: $accent;
+  color: $paper;
+
+  &:hover:not(:disabled) {
+    background-color: $accent-hover;
+    color: $paper;
+    box-shadow: $shadow-accent;
+  }
+
+  &--ghost {
+    background-color: transparent;
+    border-color: $ink-500;
+    color: $text-strong;
+
+    &:hover:not(:disabled) {
+      border-color: $ink-400;
+      background-color: $ink-600;
+      color: $text-strong;
+      box-shadow: none;
+    }
+  }
+
+  &--subtle {
+    background-color: $ink-600;
+    color: $text-strong;
+
+    &:hover:not(:disabled) {
+      background-color: $ink-500;
+      color: $text-strong;
+      box-shadow: none;
+    }
+  }
+
+  &--danger {
+    background-color: transparent;
+    border-color: rgba($danger, 0.4);
+    color: $danger;
+
+    &:hover:not(:disabled) {
+      background-color: rgba($danger, 0.12);
+      color: $danger;
+      box-shadow: none;
+    }
+  }
+
+  &--block {
+    width: 100%;
+  }
+}
+
+// ----------------------------------------------------------------- forms ---
+.field {
+  @include flex(column, flex-start, stretch, 0.4rem);
+
+  > label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: $text-muted;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+}
+
+@mixin control {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: $ink-600;
+  color: $text-strong;
+  border: 1px solid $ink-500;
+  border-radius: $radius;
+  font-size: 0.95rem;
+  transition: border-color $transition, box-shadow $transition;
+
+  &::placeholder {
+    color: $text-faint;
+  }
+
+  &:hover:not(:disabled) {
+    border-color: $ink-400;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: $accent;
+    box-shadow: 0 0 0 3px $accent-ring;
+  }
+}
+
+// Caret for native selects — the stock one is invisible on a dark control.
+@mixin select-caret {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239a9aab' d='M10.293 3.293L6 7.586 1.707 3.293A1 1 0 00.293 4.707l5 5a1 1 0 001.414 0l5-5a1 1 0 10-1.414-1.414z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  padding-right: 2.5rem;
+  cursor: pointer;
+}
+
+.input,
+.select {
+  @include control;
+}
+
+.select {
+  @include select-caret;
+}
+
+// A range input styled consistently across engines.
+@mixin range-input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  padding: 0;
+  border: none;
+  border-radius: $radius-pill;
+  background: $ink-500;
+  cursor: pointer;
+
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    @include square(18px);
+    border-radius: 50%;
+    background: $accent;
+    border: 3px solid $ink-700;
+    box-shadow: 0 0 0 1px $accent;
+    cursor: pointer;
+    transition: transform $transition;
+  }
+
+  &:hover::-webkit-slider-thumb {
+    transform: scale(1.15);
+  }
+
+  &::-moz-range-thumb {
+    @include square(18px);
+    border-radius: 50%;
+    background: $accent;
+    border: 3px solid $ink-700;
+    cursor: pointer;
+  }
+}
+
+// ------------------------------------------------------------ components ---
+.card {
+  background-color: $ink-700;
+  border: 1px solid $ink-500;
+  border-radius: $radius-lg;
+  padding: 1.5rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: $radius-pill;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background-color: $ink-600;
+  color: $text-muted;
+
+  &--accent {
+    background-color: $accent;
+    color: $paper;
+  }
+
+  &--success {
+    background-color: rgba($success, 0.15);
+    color: $success;
+  }
+
+  &--danger {
+    background-color: rgba($danger, 0.15);
+    color: $danger;
+  }
+
+  &--warning {
+    background-color: rgba($warning, 0.15);
+    color: $warning;
+  }
+
+  // "Awaiting payment" — an order that exists and is holding stock but has not
+  // been paid for yet. Neither a failure nor a success, so neither red nor green.
+  &--info {
+    background-color: rgba($info, 0.15);
+    color: $info;
+  }
+}
+
+// Shared "nothing here yet" panel — cart, wishlist, orders and empty searches
+// all render this instead of a bare <h1>.
+.empty-state {
+  @include flex(column, center, center, 0.75rem);
+  text-align: center;
+  padding: 4rem 1.5rem;
+  width: 100%;
+  color: $text-muted;
+
+  > svg {
+    font-size: 2.5rem;
+    color: $ink-400;
+    margin-bottom: 0.5rem;
+  }
+
+  > h2 {
+    font-size: 1.35rem;
+  }
+
+  > p {
+    max-width: 32rem;
+  }
+
+  > a,
+  > .btn {
+    margin-top: 0.75rem;
+  }
+}
+
+// --------------------------------------------------------------- loading ---
+.skeleton-loader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.skeleton-shape {
+  height: 30px;
+  width: 100%;
+  border-radius: $radius;
+  background: linear-gradient(
+    90deg,
+    $ink-700 25%,
+    $ink-600 37%,
+    $ink-700 63%
+  );
+  background-size: 400% 100%;
+  animation: skeleton-loading 1.4s ease infinite;
+}
+
+// A rail of card-shaped placeholders, so a loading product row keeps the same
+// silhouette as the loaded one instead of collapsing to thin bars.
+.skeleton-cards {
+  display: flex;
+  gap: 1.25rem;
+  overflow: hidden;
+  width: 100%;
+
+  > span {
+    flex: 0 0 15.5rem;
+    height: 24rem;
+    border-radius: $radius-lg;
+    background: linear-gradient(
+      90deg,
+      $ink-700 25%,
+      $ink-600 37%,
+      $ink-700 63%
+    );
+    background-size: 400% 100%;
+    animation: skeleton-loading 1.4s ease infinite;
+  }
+
+  &--grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  }
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes loading-animation {
+  to {
+    transform: rotateZ(360deg);
+  }
+}
+
+@keyframes up-and-down {
+  to {
+    transform: translate(-50%, -20%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

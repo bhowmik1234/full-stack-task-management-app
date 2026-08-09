@@ -1,0 +1,171 @@
+@use "tokens" as *;
+@use "mixins" as *;
+@use "base" as *;
+
+// The policy pages and the 404.
+//
+// Both are long-form reading rather than interface, so the rules here are about
+// measure and rhythm: a line length that does not force the eye to track back,
+// and enough space between sections that a reader can find where one ends. The
+// rest of the app's surfaces are cards and grids; these deliberately are not.
+
+.static-page {
+  // ~70 characters at this size. Wider than this and a reader loses the start
+  // of the next line, which is exactly the failure mode of a full-width policy.
+  max-width: 46rem;
+
+  &__head {
+    padding-bottom: 1.75rem;
+    margin-bottom: 2.25rem;
+    border-bottom: 1px solid $ink-500;
+
+    h1 {
+      font-family: $font-display;
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 600;
+      color: $text-strong;
+      margin-bottom: 0.75rem;
+    }
+  }
+
+  &__intro {
+    font-size: 1.05rem;
+    line-height: 1.65;
+    color: $text;
+  }
+
+  &__updated {
+    margin-top: 1rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $text-faint;
+  }
+
+  &__body {
+    @include flex(column, flex-start, stretch, 2.5rem);
+
+    section {
+      @include flex(column, flex-start, stretch, 0.9rem);
+    }
+
+    h2 {
+      font-family: $font-display;
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: $text-strong;
+    }
+
+    p {
+      font-size: 0.975rem;
+      line-height: 1.75;
+      color: $text;
+    }
+
+    ul {
+      @include flex(column, flex-start, stretch, 0.5rem);
+      padding-left: 1.25rem;
+
+      li {
+        list-style: disc;
+        font-size: 0.975rem;
+        line-height: 1.7;
+        color: $text;
+      }
+    }
+
+    a {
+      color: $accent;
+      text-decoration: underline;
+      text-underline-offset: 0.2em;
+
+      &:hover {
+        color: $accent-hover;
+      }
+    }
+  }
+}
+
+// ------------------------------------------------------------------- 404 ---
+
+.not-found {
+  @include flex(column, center, center, 0);
+  min-height: 55vh;
+  text-align: center;
+
+  &__code {
+    font-family: $font-display;
+    font-size: clamp(3.5rem, 12vw, 6rem);
+    font-weight: 700;
+    line-height: 1;
+    // Present but quiet: it labels the page for anyone who reads status codes
+    // without shouting an error at everyone who mistyped a URL.
+    color: $ink-500;
+  }
+
+  h1 {
+    font-family: $font-display;
+    font-size: clamp(1.35rem, 3.5vw, 1.85rem);
+    font-weight: 600;
+    color: $text-strong;
+    margin: 0.75rem 0 0.85rem;
+  }
+
+  &__detail {
+    max-width: 32rem;
+    font-size: 0.975rem;
+    line-height: 1.7;
+    color: $text-muted;
+
+    code {
+      padding: 0.1rem 0.4rem;
+      border-radius: $radius-sm;
+      background-color: $ink-700;
+      color: $text;
+      font-size: 0.9em;
+      // A long mistyped path must wrap rather than push the page sideways.
+      word-break: break-all;
+    }
+  }
+
+  &__actions {
+    @include flex(row, center, center, 0.75rem);
+    flex-wrap: wrap;
+    margin: 2rem 0 1.75rem;
+  }
+
+  &__primary {
+    @extend %btn-base;
+    padding: 0.7rem 1.5rem;
+    background-color: $accent;
+    color: $paper;
+
+    &:hover {
+      background-color: $accent-hover;
+    }
+  }
+
+  &__secondary {
+    @extend %btn-base;
+    padding: 0.7rem 1.5rem;
+    background-color: $ink-600;
+    color: $text-strong;
+
+    &:hover {
+      background-color: $ink-500;
+    }
+  }
+
+  &__help {
+    font-size: 0.9rem;
+    color: $text-muted;
+
+    a {
+      color: $accent;
+
+      &:hover {
+        color: $accent-hover;
+      }
+    }
+  }
+}

@@ -1,0 +1,125 @@
+# Production overlay. Always used together with the base file:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# (docs/deployment.md wraps that in a shorter command.)
+#
+# An overlay rather than a second full compose file, because a fork of the base
+# would have to be kept in step with it by hand — and the copy that drifts is
+# always the production one, discovered during an incident. This file contains
+# only the differences, so anything not mentioned here is defined once.
+#
+# What it changes:
+#   - puts Caddy in front, terminating TLS for both hostnames
+#   - stops publishing nginx and postgres directly to the host
+#   - corrects the proxy-hop count the backend trusts
+#   - takes database backups
+#   - bounds the container logs
+
+services:
+  db:
+    # The base file publishes 5432 so migrations and psql can be run from the
+    # host. In production that is the database of record listening on a public
+    # interface, protected by one password — a scan will find it within hours.
+    #
+    # `!override` is load-bearing: Compose merges list fields by APPENDING, so
+    # without it this entry is added to the base file's rather than replacing
+    # it, and the wide-open binding survives into production while this file
+    # appears to have closed it. (Verified — it does exactly that if the tag is
+    # removed.) `!override` replaces the sequence outright.
+    #
+    # Rebound to loopback rather than dropped: still reachable via
+    # `psql -h localhost` while you are SSH'd into the box, unreachable from
+    # anywhere else. That is the access the port was published for anyway.
+    ports: !override
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    logging: &logging
+      driver: json-file
+      options:
+        # Docker's default is unbounded. A busy store's logs will fill the disk
+        # given long enough, and a full disk takes postgres down with it — which
+        # presents as the whole site failing for a reason nothing in the
+        # application logs explains.
+        max-size: "10m"
+        max-file: "5"
+
+  migrate:
+    logging: *logging
+
+  backend:
+    environment:
+      # Two proxies now, not one: caddy -> nginx -> backend, each appending to
+      # X-Forwarded-For. Left at 1 the backend reads Caddy's address as the
+      # client and every visitor lands in the same rate-limit bucket, so the
+      # first person to trip the app-wide limiter locks out the whole store.
+      # See the TRUST_PROXY comment in backend/src/app.ts.
+      TRUST_PROXY: "2"
+    logging: *logging
+
+  web:
+    # Caddy holds 80/443 now, so nginx must stop claiming port 80 — and here
+    # `!override` is the difference between a working stack and one that will
+    # not start at all: appended, the base file's `80:80` collides with Caddy's
+    # and whichever container starts second fails to bind.
+    #
+    # Kept on loopback rather than removed entirely: curling the origin directly
+    # is how you tell a TLS/Caddy problem apart from an application one, and
+    # that is exactly when you need it.
+    ports: !override
+      - "127.0.0.1:${HTTP_PORT:-8080}:80"
+    logging: *logging
+
+  # ---- TLS termination ----
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      # QUIC/HTTP3. Harmless if your firewall drops it; Caddy falls back.
+      - "443:443/udp"
+    environment:
+      # Both are required — Caddy will happily start with them empty and then
+      # serve nothing on the hostname you expected.
+      SITE_DOMAIN: ${SITE_DOMAIN:?SITE_DOMAIN is required — the storefront's domain, e.g. example.com}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required — Let's Encrypt sends expiry notices here}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Issued certificates and the ACME account key. This MUST be a persistent
+      # volume: without it every restart re-requests certificates, and Let's
+      # Encrypt's rate limit is 5 per hostname per week — enough to lock the
+      # site out of HTTPS for days after a few redeploys.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    logging: *logging
+
+  # ---- database backups ----
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_USER: ${POSTGRES_USER:-ecommerce}
+      POSTGRES_DB: ${POSTGRES_DB:-ecommerce}
+      # pg_dump reads this; it is the same password the backend uses.
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required — see .env.example}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ./scripts/pg-backup.sh:/usr/local/bin/pg-backup.sh:ro
+      # A bind mount, not a named volume, on purpose: these files have to be
+      # reachable from the host so something else can copy them off the machine.
+      # A backup that only exists inside Docker on the same disk as the database
+      # does not survive the failure you are most afraid of.
+      - ${BACKUP_DIR:-./backups}:/backups
+    entrypoint: ["/bin/sh", "/usr/local/bin/pg-backup.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *logging
+
+volumes:
+  caddy_data:
+  caddy_config:

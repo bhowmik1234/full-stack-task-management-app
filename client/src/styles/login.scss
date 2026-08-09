@@ -1,52 +1,144 @@
+@use "tokens" as *;
+@use "mixins" as *;
+@use "base" as *;
+
+// Sign-in page.
+
 .login {
-    height: 90vh;
-    @include flex(column);
-    background-color: $secondary-color;
-  
-    > main {
-      width: 100%;
-      height: 80%;
-      max-width: 400px;
-      padding: 2rem;
-      background-color: antiquewhite;
-      @include baseShadow;
-      @include flex(column, center, stretch);
-      > div {
+  @include flex(column, center, center, 0);
+  min-height: calc(100vh - #{$header-height} - 6rem);
+
+  > main {
+    width: 100%;
+    max-width: 26rem;
+    padding: 2.5rem 2rem;
+    background-color: $ink-700;
+    border: 1px solid $ink-500;
+    border-radius: $radius-lg;
+    box-shadow: $shadow-lg;
+    @include flex(column, flex-start, stretch, 1.25rem);
+
+    @include upto($bp-sm) {
+      padding: 2rem 1.25rem;
+    }
+
+    > h1 {
+      font-size: 1.5rem;
+      text-align: center;
+      letter-spacing: normal;
+      text-transform: none;
+    }
+
+    // Sub-line under the title explaining why the two fields are here.
+    > .login__hint {
+      text-align: center;
+      font-size: 0.875rem;
+      color: $text-muted;
+      margin-top: -0.75rem;
+    }
+
+    // Provider switch. Overrides the generic `> div` block below, which styles
+    // the form rows and their full-width white submit button.
+    > .login__methods {
+      @include flex(row, center, stretch, 0.5rem);
+      padding: 0.3rem;
+      background-color: $ink-800;
+      border: 1px solid $ink-500;
+      border-radius: $radius-lg;
+
+      > button {
+        @extend %btn-base;
+        flex: 1;
+        padding: 0.6rem 0.75rem;
+        background-color: transparent;
+        color: $text-muted;
+        font-weight: 500;
+
+        &:hover:not(:disabled) {
+          background-color: $ink-600;
+          color: $paper;
+        }
+
+        &.is-active {
+          background-color: $ink-500;
+          color: $paper;
+        }
+      }
+    }
+
+    // Dev-only bypass panel. Deliberately looks unlike the real buttons so it
+    // is never mistaken for one; it is not in production builds at all.
+    > .login__dev {
+      border: 1px dashed $ink-500;
+      border-radius: $radius;
+      padding: 0.85rem;
+      gap: 0.25rem;
+
+      > p {
+        font-size: 0.75rem;
+        color: $text-faint;
+        margin: 0 0 0.35rem;
+      }
+    }
+
+    > div {
+      @include flex(column, flex-start, stretch, 0.4rem);
+
+      > label {
+        font-size: 0.8rem;
+        font-weight: 500;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: $text-muted;
+      }
+
+      > input,
+      > select {
+        @include control;
+      }
+
+      > select {
+        @include select-caret;
+      }
+
+      > p {
+        text-align: center;
+        font-size: 0.85rem;
+        color: $text-faint;
+        margin: 0.5rem 0;
+      }
+
+      // Google sign-in button
+      > button {
+        @extend %btn-base;
         width: 100%;
-        @include flex(column, flex-start, stretch, 0.2rem);
-        > input,
-        > select {
-          @include inputStyle;
-          border: 1px solid rgba(162, 162, 162, 0.53);
-          border-radius: 5px;
-          font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        padding: 0.85rem 1rem;
+        background-color: $paper;
+        color: #1f1f1f;
+        font-weight: 600;
+
+        &:hover:not(:disabled) {
+          background-color: #ececec;
         }
-  
-        > p {
-          text-align: center;
-          margin: 2rem;
+
+        > svg {
+          font-size: 1.25rem;
         }
-  
-        button {
-          width: 70%;
-          margin: auto;
-          height: 3rem;
-          @include btn(unset, rgb(62, 125, 242), white);
-          @include flex;
-          border: 1px solid rgb(62, 125, 242);
-          border-radius: 5px;
-          font-size: 1.05rem;
-          > svg {
-            background-color: white;
-            width: 30%;
-            height: 100%;
-          }
-  
-          > span {
-            width: 100%;
-            text-align: center;
+
+        // Secondary action under the OTP step ("use a different number").
+        &.login__link {
+          background-color: transparent;
+          color: $text-muted;
+          font-weight: 500;
+          padding: 0.4rem;
+
+          &:hover:not(:disabled) {
+            background-color: transparent;
+            color: $paper;
+            text-decoration: underline;
           }
         }
       }
     }
   }
+}

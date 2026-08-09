@@ -1,4 +1,10 @@
-import { CartItem, ShippingInfo, User } from "./types";
+import {
+  CartItem,
+  PaymentMethod,
+  ShippingInfo,
+  StorefrontConfig,
+  User,
+} from "./types";
 
 export interface userReducerIntialState{
     user: User | null,
@@ -16,4 +22,12 @@ export interface CartReducerInitialState {
   couponCode: string;
   total: number;
   shippingInfo: ShippingInfo;
+  /**
+   * Tax and shipping rules from GET /config/storefront, so the preview and the
+   * charge come from the same source. Defaulted to the old hardcoded numbers
+   * until the request lands, so a cart is never priced from nothing.
+   */
+  config: StorefrontConfig;
+  /** Chosen on the shipping page; changes what the total includes. */
+  paymentMethod: PaymentMethod;
 }

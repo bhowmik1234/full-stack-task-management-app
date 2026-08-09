@@ -1,25 +1,212 @@
-.container {
-  background-color: $secondary-color;
-  width: 100vw;
-  height: 100vh;
+@use "tokens" as *;
+@use "mixins" as *;
+@use "base" as *;
 
-  > div{
-    max-width: 1367px;
+// "My orders" page. The table itself comes from TableHOC and is styled by the
+// shared `.table` rules in app.scss.
+
+.container {
+  width: 100%;
+
+  > div {
+    max-width: $content-max;
     width: 100%;
-    margin: auto;
-    overflow: auto;
-    background-color: $secondary-color;
-    > h1 {
-      @include heading;
-      margin: 1rem 0;
-      text-align: left;
+    margin: 0 auto;
+
+    > h2 {
+      font-size: 1.5rem;
+      margin-bottom: 1.5rem;
+      letter-spacing: normal;
+      text-transform: none;
+    }
+
+    > main {
+      overflow-x: auto;
+    }
+  }
+}
+
+.heading {
+  font-size: 1.35rem;
+  margin: 1rem 0;
+  text-align: center;
+}
+
+// ------------------------------------------------------- single order ------
+.order-details {
+  max-width: $content-max;
+  margin: 0 auto;
+  @include flex(column, flex-start, stretch, 1.5rem);
+
+  > header {
+    @include flex(row, space-between, center, 1rem);
+    flex-wrap: wrap;
+
+    a {
+      font-size: 0.85rem;
+      color: $text-muted;
+
+      &:hover {
+        color: $accent;
+      }
+    }
+
+    h2 {
+      font-size: 1.5rem;
+      margin-top: 0.35rem;
     }
   }
 
+  &__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 20rem;
+    align-items: start;
+    gap: 1.5rem;
+
+    @include upto($bp-lg) {
+      grid-template-columns: 1fr;
+    }
   }
-  
-  .heading {
-    @include heading;
-    margin: 1rem 0;
-    text-align: center;
+
+  .card h3 {
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: $text-muted;
+    margin-bottom: 1.25rem;
   }
+
+  &__items {
+    list-style: none;
+    @include flex(column, flex-start, stretch, 1rem);
+
+    li {
+      display: grid;
+      grid-template-columns: 4rem minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid $ink-500;
+
+      &:last-child {
+        padding-bottom: 0;
+        border-bottom: none;
+      }
+
+      img {
+        @include square(4rem);
+        object-fit: cover;
+        border-radius: $radius;
+        background-color: $ink-600;
+      }
+
+      a {
+        display: block;
+        color: $text-strong;
+        font-size: 0.95rem;
+
+        &:hover {
+          color: $accent;
+        }
+      }
+
+      span {
+        font-size: 0.85rem;
+        color: $text-muted;
+      }
+
+      strong {
+        font-family: $font-display;
+        color: $text-strong;
+      }
+    }
+  }
+
+  &__side {
+    @include flex(column, flex-start, stretch, 1.5rem);
+
+    address {
+      font-style: normal;
+      color: $text;
+      line-height: 1.8;
+    }
+
+    dl > div {
+      @include flex(row, space-between, center, 1rem);
+      padding: 0.4rem 0;
+      font-size: 0.9rem;
+
+      dt {
+        color: $text-muted;
+      }
+
+      dd {
+        color: $text;
+        font-variant-numeric: tabular-nums;
+      }
+    }
+  }
+
+  &__total {
+    margin-top: 0.5rem;
+    padding-top: 0.85rem !important;
+    border-top: 1px solid $ink-500;
+
+    dt,
+    dd {
+      color: $text-strong !important;
+      font-weight: 600;
+    }
+
+    dd {
+      font-family: $font-display;
+      font-size: 1.15rem;
+    }
+  }
+
+  // "Pay for this order" / "this order was cancelled" — a full-width banner
+  // above the grid, because it is the one thing to act on when it is shown.
+  &__notice {
+    @include flex(row, space-between, center, 1rem);
+    flex-wrap: wrap;
+    padding: 1rem 1.25rem;
+    border-radius: $radius-lg;
+    border: 1px solid rgba($info, 0.35);
+    background-color: rgba($info, 0.1);
+    color: $text;
+    font-size: 0.9rem;
+
+    &--muted {
+      border-color: $ink-500;
+      background-color: $ink-600;
+      color: $text-muted;
+    }
+  }
+
+  &__payment-state {
+    margin-top: 1rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: $text-muted;
+  }
+
+  // Destructive, and rarely the right button — outlined rather than filled so
+  // it does not compete with "Complete payment" above it.
+  &__cancel {
+    @extend %btn-base;
+    background-color: transparent;
+    border: 1px solid rgba($danger, 0.4);
+    color: $danger;
+
+    &:hover:not(:disabled) {
+      background-color: rgba($danger, 0.12);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+}

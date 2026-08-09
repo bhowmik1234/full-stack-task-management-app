@@ -1,0 +1,500 @@
+@use "tokens" as *;
+@use "mixins" as *;
+@use "base" as *;
+
+// Returns, the variant picker and the cash-on-delivery option.
+//
+// Grouped in one partial because they all landed together and all belong to the
+// same journey — choose a variant, choose how to pay, send it back — rather than
+// because they share any styling.
+
+// ------------------------------------------------------- variant picker ---
+
+.variant-picker {
+  @include flex(column, flex-start, stretch, 1rem);
+  margin: 1.25rem 0;
+
+  &__group {
+    border: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  &__label {
+    @include flex(row, flex-start, baseline, 0.5rem);
+    padding: 0;
+    margin-bottom: 0.6rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $text-muted;
+  }
+
+  &__chosen {
+    letter-spacing: 0;
+    text-transform: none;
+    font-weight: 500;
+    color: $text-strong;
+  }
+
+  &__values {
+    @include flex(row, flex-start, center, 0.5rem);
+    flex-wrap: wrap;
+  }
+
+  &__value {
+    @extend %btn-base;
+    min-width: 3rem;
+    padding: 0.55rem 0.9rem;
+    font-size: 0.9rem;
+    background-color: $ink-600;
+    color: $text;
+    border: 1px solid $ink-500;
+
+    &:hover:not(:disabled) {
+      border-color: $ink-400;
+      color: $text-strong;
+    }
+
+    &.is-selected {
+      background-color: $accent-soft;
+      border-color: $accent;
+      color: $text-strong;
+    }
+
+    // Not made in this combination at all. Struck through rather than merely
+    // dimmed, because "unavailable" and "sold out" are different states and a
+    // customer has to be able to tell which one they are looking at — the first
+    // means pick something else, the second means come back later.
+    &.is-unavailable {
+      opacity: 0.4;
+      text-decoration: line-through;
+      cursor: not-allowed;
+    }
+
+    // Made, but none left. Deliberately still clickable: landing on it is how
+    // the customer is told it is sold out and offered a back-in-stock alert.
+    &.is-soldout {
+      border-style: dashed;
+      color: $text-muted;
+    }
+  }
+}
+
+.product__price-from {
+  font-size: 0.7em;
+  font-weight: 500;
+  color: $text-muted;
+}
+
+.badge--muted {
+  background-color: rgba($text-muted, 0.15);
+  color: $text-muted;
+}
+
+// -------------------------------------------------- cash on delivery ---
+
+.shipping-form__payment {
+  @include flex(column, flex-start, stretch, 0.65rem);
+  border: none;
+  padding: 0;
+  margin: 0.5rem 0 0.25rem;
+
+  legend {
+    padding: 0;
+    margin-bottom: 0.65rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: $text-strong;
+  }
+
+  label {
+    @include flex(row, flex-start, flex-start, 0.75rem);
+    padding: 0.9rem 1rem;
+    border: 1px solid $ink-500;
+    border-radius: $radius;
+    background-color: $ink-700;
+    cursor: pointer;
+    transition: border-color $transition, background-color $transition;
+
+    &:hover:not(.is-disabled) {
+      border-color: $ink-400;
+    }
+
+    &.is-selected {
+      border-color: $accent;
+      background-color: $accent-soft;
+    }
+
+    &.is-disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    input {
+      margin-top: 0.2rem;
+      accent-color: $accent;
+    }
+
+    span {
+      @include flex(column, flex-start, stretch, 0.2rem);
+      font-size: 0.85rem;
+      color: $text-muted;
+    }
+
+    strong {
+      font-size: 0.95rem;
+      color: $text-strong;
+    }
+  }
+}
+
+// ------------------------------------------------------------ tracking ---
+
+.order-details__tracking {
+  margin-bottom: 1.5rem;
+
+  dl {
+    @include flex(row, flex-start, flex-start, 2rem);
+    flex-wrap: wrap;
+    margin: 0.75rem 0 1rem;
+
+    dt {
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: $text-muted;
+      margin-bottom: 0.25rem;
+    }
+
+    dd {
+      font-size: 0.95rem;
+      color: $text-strong;
+    }
+
+    code {
+      padding: 0.1rem 0.4rem;
+      border-radius: $radius-sm;
+      background-color: $ink-600;
+      // Tracking numbers are read aloud and typed into a carrier's box, so the
+      // digits have to be unambiguous — 0/O and 1/l in a proportional face are
+      // a support call waiting to happen.
+      font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+      letter-spacing: 0.03em;
+    }
+  }
+}
+
+.order-details__variant,
+.cart-item__variant {
+  font-size: 0.8rem;
+  color: $text-muted;
+}
+
+.order-details__hint {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: $text-muted;
+
+  a {
+    color: $accent;
+  }
+}
+
+// ------------------------------------------------------------- returns ---
+
+// Status colours. Green and red are never adjacent in this list for the same
+// reason the console's charts avoid the pair — it is the classic colour-vision
+// failure — and every badge carries its status as text regardless.
+.badge--requested { background-color: rgba($info, 0.15); color: $info; }
+.badge--approved { background-color: rgba($accent, 0.15); color: $accent; }
+.badge--received { background-color: rgba($warning, 0.15); color: $warning; }
+.badge--refunded { background-color: rgba($success, 0.15); color: $success; }
+.badge--rejected { background-color: rgba($danger, 0.15); color: $danger; }
+.badge--cancelled { background-color: rgba($text-muted, 0.15); color: $text-muted; }
+
+.order-returns {
+  margin-top: 1.5rem;
+
+  > ul {
+    @include flex(column, flex-start, stretch, 1.25rem);
+    margin-top: 1rem;
+  }
+
+  > ul > li {
+    @include flex(column, flex-start, stretch, 0.6rem);
+    padding: 1rem;
+    border: 1px solid $ink-500;
+    border-radius: $radius;
+  }
+
+  &__head {
+    @include flex(row, space-between, center, 1rem);
+  }
+
+  &__date {
+    font-size: 0.8rem;
+    color: $text-muted;
+  }
+
+  &__reason {
+    font-size: 0.9rem;
+    color: $text-strong;
+  }
+
+  &__items {
+    @include flex(column, flex-start, stretch, 0.25rem);
+
+    li {
+      font-size: 0.85rem;
+      color: $text-muted;
+    }
+  }
+
+  &__note,
+  &__refund {
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: $text-muted;
+    padding: 0.65rem 0.8rem;
+    border-radius: $radius-sm;
+    background-color: $ink-600;
+  }
+}
+
+.returns-list {
+  @include flex(column, flex-start, stretch, 1.25rem);
+
+  > li {
+    @include flex(column, flex-start, stretch, 0.85rem);
+  }
+
+  &__head {
+    @include flex(row, space-between, flex-start, 1rem);
+
+    > div {
+      @include flex(column, flex-start, flex-start, 0.2rem);
+    }
+
+    a {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: $text-strong;
+
+      &:hover {
+        color: $accent;
+      }
+    }
+  }
+
+  &__date {
+    font-size: 0.8rem;
+    color: $text-muted;
+  }
+
+  &__explain {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: $text;
+  }
+
+  &__items {
+    @include flex(column, flex-start, stretch, 0.5rem);
+
+    li {
+      @include flex(row, flex-start, center, 0.65rem);
+      font-size: 0.85rem;
+      color: $text-muted;
+    }
+
+    img {
+      @include square(2.25rem);
+      object-fit: cover;
+      border-radius: $radius-sm;
+    }
+  }
+
+  &__meta {
+    @include flex(row, flex-start, flex-start, 2rem);
+    flex-wrap: wrap;
+
+    dt {
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: $text-muted;
+      margin-bottom: 0.2rem;
+    }
+
+    dd {
+      font-size: 0.9rem;
+      color: $text-strong;
+    }
+  }
+
+  &__note {
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: $text-muted;
+    padding: 0.65rem 0.8rem;
+    border-radius: $radius-sm;
+    background-color: $ink-600;
+  }
+}
+
+// ------------------------------------------------------ return dialog ---
+
+.return-dialog {
+  @include flex(row, center, center, 0);
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  padding: 1rem;
+  background-color: rgba(0, 0, 0, 0.65);
+  // The page behind still scrolls on iOS without this on the panel itself.
+  overflow-y: auto;
+
+  &__panel {
+    @include flex(column, flex-start, stretch, 1.25rem);
+    width: min(34rem, 100%);
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 1.5rem;
+    border-radius: $radius-lg;
+    background-color: $ink-700;
+    box-shadow: $shadow-lg;
+
+    > header {
+      @include flex(row, space-between, center, 1rem);
+
+      h2 {
+        font-family: $font-display;
+        font-size: 1.15rem;
+        color: $text-strong;
+      }
+
+      button {
+        @include flex(row, center, center, 0);
+        @include square(2rem);
+        border: none;
+        border-radius: $radius-sm;
+        background: none;
+        font-size: 1.5rem;
+        line-height: 1;
+        color: $text-muted;
+        cursor: pointer;
+
+        &:hover {
+          background-color: $ink-600;
+          color: $text-strong;
+        }
+      }
+    }
+
+    > footer {
+      @include flex(row, flex-end, center, 0.75rem);
+      padding-top: 0.5rem;
+      border-top: 1px solid $ink-500;
+    }
+  }
+
+  &__empty {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: $text-muted;
+  }
+
+  &__items {
+    @include flex(column, flex-start, stretch, 0.75rem);
+  }
+
+  &__item {
+    @include flex(row, flex-start, center, 0.85rem);
+    padding: 0.75rem;
+    border: 1px solid $ink-500;
+    border-radius: $radius;
+
+    img {
+      @include square(3rem);
+      object-fit: cover;
+      border-radius: $radius-sm;
+    }
+
+    > div:first-of-type {
+      @include flex(column, flex-start, flex-start, 0.15rem);
+      flex: 1;
+      min-width: 0;
+
+      strong {
+        font-size: 0.9rem;
+        color: $text-strong;
+      }
+
+      span {
+        font-size: 0.78rem;
+        color: $text-muted;
+      }
+    }
+  }
+
+  &__qty {
+    @include flex(row, center, center, 0.5rem);
+
+    button {
+      @include flex(row, center, center, 0);
+      @include square(1.85rem);
+      border: 1px solid $ink-500;
+      border-radius: $radius-sm;
+      background-color: $ink-600;
+      color: $text-strong;
+      font-size: 1rem;
+      cursor: pointer;
+
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+    }
+
+    span {
+      min-width: 1.5rem;
+      text-align: center;
+      font-size: 0.9rem;
+      color: $text-strong;
+    }
+  }
+
+  &__field {
+    @include flex(column, flex-start, stretch, 0.4rem);
+
+    > span {
+      font-size: 0.85rem;
+      color: $text-muted;
+    }
+
+    select,
+    textarea {
+      @include control;
+      font-family: inherit;
+      resize: vertical;
+    }
+
+    select {
+      @include select-caret;
+    }
+  }
+
+  &__estimate {
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: $text-muted;
+    padding: 0.7rem 0.85rem;
+    border-radius: $radius-sm;
+    background-color: $ink-600;
+
+    a {
+      color: $accent;
+    }
+  }
+}

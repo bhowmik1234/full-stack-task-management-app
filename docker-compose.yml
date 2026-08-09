@@ -43,11 +43,44 @@ services:
     restart: unless-stopped
     environment:
       PORT: "3000"
+      NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required — see .env.example}
-      STRIPE_KEY: ${STRIPE_KEY:?STRIPE_KEY is required — see .env.example}
+      # empty is fine behind the bundled nginx: the SPA is same-origin there
+      CLIENT_URL: ${CLIENT_URL:-}
+      # The console's origin, e.g. https://app.admin.example.com. Admin routes
+      # refuse a browser request whose Origin is anything else — see
+      # backend/src/middlewares/auth.ts. Empty turns that pin off; behind the
+      # bundled nginx the console is same-origin and sends no Origin at all on
+      # its GETs, so setting it costs nothing and is worth doing.
+      ADMIN_URL: ${ADMIN_URL:-}
+      # Console sign-in. The admin routes verify a Firebase ID token rather
+      # than trusting `?id=`, which is the only way the server can enforce
+      # which provider an operator used. Required: with NODE_ENV=production
+      # and these unset, every admin route answers 503 rather than quietly
+      # falling back to the weaker scheme.
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:?FIREBASE_PROJECT_ID is required — see .env.example}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL:?FIREBASE_CLIENT_EMAIL is required — see .env.example}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY:?FIREBASE_PRIVATE_KEY is required — see .env.example}
+      ADMIN_SIGN_IN_PROVIDERS: ${ADMIN_SIGN_IN_PROVIDERS:-google.com}
+      ADMIN_SESSION_MAX_AGE_HOURS: ${ADMIN_SESSION_MAX_AGE_HOURS:-12}
+      ADMIN_REQUIRE_MFA: ${ADMIN_REQUIRE_MFA:-false}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:?RAZORPAY_KEY_ID is required — see .env.example}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:?RAZORPAY_KEY_SECRET is required — see .env.example}
+      # Not optional in practice: without it the webhook rejects every delivery
+      # and an order whose customer closed the tab is never marked paid.
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:?RAZORPAY_WEBHOOK_SECRET is required — see .env.example}
       CLOUD_NAME: ${CLOUD_NAME:-}
       CLOUD_API_KEY: ${CLOUD_API_KEY:-}
       CLOUD_API_SECRET: ${CLOUD_API_SECRET:-}
+      # Transactional order mail. Optional by design — unset means nothing is
+      # sent and each message is logged instead, so a deploy without a mail
+      # provider still takes orders. Sending is fire-and-forget everywhere it
+      # is triggered and can never fail a payment.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      STORE_NAME: ${STORE_NAME:-}
+      # Signs unsubscribe links; falls back to the Razorpay secret if unset.
+      MAIL_UNSUBSCRIBE_SECRET: ${MAIL_UNSUBSCRIBE_SECRET:-}
     volumes:
       # product photos live on local disk; this keeps them across redeploys
       - uploads:/app/uploads
@@ -59,7 +92,18 @@ services:
       migrate:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/"]
+      # Readiness, not liveness: `web` waits on `service_healthy` before it
+      # starts, so this is what decides when nginx may send the first customer
+      # to this container. `/` only proved Express was listening — Prisma
+      # connects lazily, so a backend that could not reach Postgres at all
+      # answered it happily and the first real request was the one that failed.
+      # /health/ready runs a SELECT 1, so "healthy" means the pool answers.
+      #
+      # Compose does not restart a container for failing a healthcheck (only
+      # Swarm does), so a database blip marks this unhealthy and nothing more —
+      # which is the behaviour we want. See the liveness/readiness split in
+      # backend/src/app.ts.
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health/ready"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -70,7 +114,12 @@ services:
       context: ./client
       args:
         VITE_SERVER: ${VITE_SERVER:?VITE_SERVER is required — see .env.example}
-        VITE_STRIPE_PROMISES: ${VITE_STRIPE_PROMISES:?VITE_STRIPE_PROMISES is required}
+        # Leave empty: nginx proxies /api on the console's host too, so the
+        # console talks to its own origin.
+        VITE_ADMIN_SERVER: ${VITE_ADMIN_SERVER:-}
+        # No payment key here any more: the Razorpay key id is public but is
+        # served by GET /order/:id/payment at runtime, so rotating it no longer
+        # means rebuilding the client image.
         VITE_FIREBASE_KEY: ${VITE_FIREBASE_KEY:?VITE_FIREBASE_KEY is required}
         VITE_FIREBASE_DOMAIN: ${VITE_FIREBASE_DOMAIN:?VITE_FIREBASE_DOMAIN is required}
         VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID:?VITE_FIREBASE_PROJECT_ID is required}
@@ -78,6 +127,19 @@ services:
         VITE_FIREBASE_SENDER_ID: ${VITE_FIREBASE_SENDER_ID:-}
         VITE_FIREBASE_APPID: ${VITE_FIREBASE_APPID:?VITE_FIREBASE_APPID is required}
         VITE_FIREBASE_MEASUREMENT_ID: ${VITE_FIREBASE_MEASUREMENT_ID:-}
+        # Store identity, the canonical origin and the footer's social links.
+        # All optional — each has a visible placeholder or is simply not
+        # rendered. They were in .env.example without ever reaching the build,
+        # so the policy pages named a placeholder store on every compose deploy.
+        VITE_STORE_NAME: ${VITE_STORE_NAME:-}
+        VITE_SUPPORT_EMAIL: ${VITE_SUPPORT_EMAIL:-}
+        VITE_SUPPORT_PHONE: ${VITE_SUPPORT_PHONE:-}
+        VITE_STORE_ADDRESS: ${VITE_STORE_ADDRESS:-}
+        VITE_SITE_URL: ${VITE_SITE_URL:-}
+        VITE_SOCIAL_FACEBOOK: ${VITE_SOCIAL_FACEBOOK:-}
+        VITE_SOCIAL_TWITTER: ${VITE_SOCIAL_TWITTER:-}
+        VITE_SOCIAL_INSTAGRAM: ${VITE_SOCIAL_INSTAGRAM:-}
+        VITE_SOCIAL_PINTEREST: ${VITE_SOCIAL_PINTEREST:-}
     image: ecommerce-web:latest
     restart: unless-stopped
     ports:

@@ -20,47 +20,386 @@ enum Role {
   admin
 }
 
+// What a console operator is allowed to do. Deliberately an enum and not a
+// free-text table: a permission only means something if a route checks for it,
+// so one that can be invented at runtime grants nothing and misleads whoever
+// ticked it. Adding a value here is a code change *and* a migration, which is
+// exactly the ceremony a new capability deserves.
+//
+// Read and write are split because they are genuinely different jobs — someone
+// answering "where is my parcel?" needs orders_read and must never be able to
+// delete the order.
+enum Permission {
+  analytics_read
+  orders_read
+  orders_write
+  products_read
+  products_write
+  customers_read
+  customers_write
+  coupons_read
+  coupons_write
+  activity_read
+  // Managing other operators. Held only by root; never assignable in the UI.
+  access_manage
+}
+
+// Suspended keeps the row — and with it who granted the access, when, and the
+// note explaining why — while refusing every request. Revoking deletes it.
+// Someone who is off for a month is suspended, not deleted and re-granted.
+enum StaffStatus {
+  active
+  suspended
+}
+
 enum Gender {
   Male
   Female
 }
 
+// Fulfilment state. `PendingPayment` is the state an order is created in:
+// checkout writes the order and reserves its stock *before* the customer is
+// sent to Razorpay, so a charge always has an order to attach to. It leaves
+// this state only via the payment webhook (-> Processing) or the expiry sweep
+// (-> Cancelled).
 enum OrderStatus {
+  PendingPayment
   Processing
   Shipped
   Delivered
+  Cancelled
+}
+
+// Tracked separately from OrderStatus because they answer different questions:
+// "has the money moved?" vs "where is the parcel?". A COD order would be
+// Processing/Pending; a refunded-but-already-shipped order is Shipped/Refunded.
+enum PaymentStatus {
+  Pending
+  Paid
+  Failed
+  Refunded
+}
+
+/// How the customer is paying. Kept out of PaymentStatus because they are
+/// orthogonal: a COD order is Pending until the courier hands the cash over,
+/// and a prepaid order is Pending only between checkout and the webhook.
+///
+/// The distinction is what stops the expiry sweep from cancelling a perfectly
+/// good COD order 30 minutes after it was placed — a COD order has no
+/// `paymentExpiresAt` because there is no payment window to run out.
+enum PaymentMethod {
+  Razorpay
+  COD
+}
+
+/// A return's life. `Received` is separate from `Refunded` deliberately: the
+/// money moves when the goods are back on the shelf, not when the request was
+/// approved, and an operator needs somewhere to record "it arrived" before the
+/// refund call succeeds — otherwise a failed refund loses the fact that the
+/// parcel is already here.
+///
+/// `Cancelled` is the customer withdrawing the request; `Rejected` is the
+/// operator refusing it. They read the same in a status column and mean
+/// opposite things in a support conversation.
+enum ReturnStatus {
+  Requested
+  Approved
+  Rejected
+  Received
+  Refunded
+  Cancelled
 }
 
 model User {
   id        String   @id // Firebase UID
   name      String
-  email     String   @unique
+  // Exactly one of email/phone comes from the sign-in provider: Google gives an
+  // email (and a photo URL), phone sign-in gives an E.164 number and neither of
+  // the others. Both are nullable and unique; `user_email_or_phone` (see the
+  // add_phone_auth migration) enforces that at least one is present.
+  email     String?  @unique
+  phone     String?  @unique
   role      Role     @default(user)
   gender    Gender
-  photo     String
+  photo     String?
   dob       DateTime @db.Date
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  orders   Order[]
-  wishlist WishlistItem[]
+  /// Set when the customer closes their own account. The row survives because
+  /// Order.userId references it and a delivered order is a financial record, so
+  /// closing anonymises instead of deleting: name is replaced, email/phone and
+  /// photo are cleared, and `user_email_or_phone` is relaxed for closed rows
+  /// only. Every guard refuses a row with this set, so the uid stops working
+  /// even though Firebase would still authenticate it.
+  deletedAt DateTime?
+
+  /// Opt-out for *non-transactional* mail only: back-in-stock alerts, review
+  /// requests, abandoned-checkout nudges.
+  ///
+  /// It deliberately does not silence receipts, shipping notices or
+  /// cancellations. Those are service messages about a transaction the customer
+  /// entered into — suppressing a receipt because someone unticked a marketing
+  /// box would remove the record of what they paid, which is not what anyone
+  /// means by "stop emailing me". The split is enforced in utils/emails.ts:
+  /// only the senders in the notification group consult this.
+  emailOptOut Boolean @default(false)
+
+  orders      Order[]
+  wishlist    WishlistItem[]
+  reviews     Review[]
+  addresses   Address[]
+  staff       StaffMember?
+  stockAlerts StockAlert[]
+  returns     ReturnRequest[]
 }
 
-model Product {
-  id        String   @id @default(uuid())
-  name      String
-  photo     String
-  price     Decimal  @db.Decimal(10, 2)
-  stock     Int
-  category  String
+/// "Tell me when this is back."
+///
+/// A request, not a subscription to anything ongoing: it is satisfied exactly
+/// once and then kept as a record rather than deleted, which is what makes the
+/// sweep idempotent — `notifiedAt` is the flag, so a restock that happens twice
+/// cannot mail the same person twice for the same request.
+///
+/// The composite primary key makes a duplicate request impossible in the same
+/// way WishlistItem does, so the endpoint can upsert instead of check-then-
+/// insert. Both sides cascade: a closed account and a deleted product should
+/// both take their pending alerts with them.
+model StockAlert {
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime  @default(now())
+  notifiedAt DateTime?
+
+  @@id([userId, productId])
+  /// The sweep's query: outstanding requests for a given product.
+  @@index([productId, notifiedAt])
+}
+
+/// A customer's saved shipping address.
+///
+/// Deliberately *not* referenced by Order. The five address columns on Order
+/// are a copy taken at checkout, because an order has to record where it was
+/// actually sent — a foreign key would let a customer edit the destination of a
+/// parcel that already shipped, and would break outright when they delete the
+/// address afterwards. This table only exists to stop people retyping.
+model Address {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// "Home", "Office" — free text, purely so a picker has something to show.
+  label    String @default("Home")
+  fullName String
+  phone    String
+  address  String
+  city     String
+  state    String
+  country  String
+  pinCode  String
+
+  /// The one prefilled at checkout. At most one per user, enforced by the
+  /// partial unique index `address_single_default` rather than by a
+  /// read-then-write in the controller, which races with itself.
+  isDefault Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([userId, createdAt])
+}
+
+/// Console access, kept apart from `User.role` on purpose.
+///
+/// `role` answers "is this account a shopper or staff" and is read by the
+/// storefront to decide whether to show a link. This row answers "and what may
+/// they do once inside", and it is the *only* thing the server consults when
+/// authorizing an admin request. Splitting them means access can be granted,
+/// narrowed, suspended and revoked without touching the customer record, and
+/// that every grant remembers who made it — which a boolean on User cannot.
+model StaffMember {
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// The single owner account. Implies every permission at check time rather
+  /// than storing them, so a permission added next year does not lock root out
+  /// of it. Enforced unique-and-present by `staff_single_root` (see migration).
+  isRoot      Boolean      @default(false)
+  permissions Permission[]
+  status      StaffStatus  @default(active)
+
+  /// Who granted this, and the reason. Nullable only for the rows the
+  /// migration backfilled, which had no granter.
+  grantedById String?
+  grantedAt   DateTime @default(now())
+  note        String?
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  // Primary/hero image. Additional angles live in ProductImage so the hero can
+  // be swapped without disturbing the gallery order.
+  photo       String
+  description String   @default("")
+  /// For a product with no variants these are the real price and stock. For one
+  /// *with* variants they are derived and maintained on every write: `price` is
+  /// the cheapest variant ("from ₹X") and `stock` the sum across variants.
+  ///
+  /// Keeping them populated rather than nulling them is what let variants be
+  /// added without touching search, sorting, the price filter, the analytics
+  /// aggregations or any list endpoint — all of which read these two columns and
+  /// none of which had to learn what a variant is. `syncVariantRollup` in
+  /// utils/variants.ts is the only writer of the derived case; anything that
+  /// changes variant stock must go through it or the rollup silently drifts.
+  price       Decimal  @db.Decimal(10, 2)
+  stock       Int
+  category    String
+  brand       String   @default("")
+  // Newline-separated bullet lists. Free text rather than tables because they
+  // are only ever written and read whole, and an admin types them as prose.
+  highlights  String   @default("")
+  inTheBox    String   @default("")
+  warranty    String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
   orderItems   OrderItem[]
   wishlistedBy WishlistItem[]
+  images       ProductImage[]
+  reviews      Review[]
+  specs        ProductSpec[]
+  stockAlerts  StockAlert[]
+  options      ProductOption[]
+  variants     ProductVariant[]
+  // Search also relies on two GIN trigram indexes over lower(name) and
+  // lower(brand) — see the add_search_trigram_indexes migration. Prisma cannot
+  // express an expression index with an operator class, so they live in SQL
+  // only and will not appear here.
 
   @@index([category])
+  @@index([brand])
   @@index([createdAt])
+}
+
+// Gallery photos beyond Product.photo. A row per image rather than a String[]
+// column so each one can be reordered or deleted individually, and so the file
+// path has somewhere to hang when cleanup runs.
+model ProductImage {
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  url       String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([productId, position])
+}
+
+// One specification row: "Display" / "Screen size" / "14 inches". Free-form
+// key-values grouped into sections, rather than fixed columns, because the
+// meaningful attributes of a laptop and of a torch have nothing in common.
+model ProductSpec {
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  group    String @default("General")
+  label    String
+  value    String
+  position Int    @default(0)
+
+  @@index([productId, position])
+}
+
+/// One axis a product varies along: "Size" with values ["S","M","L"].
+///
+/// `values` is a String[] column rather than a table because the list is only
+/// ever written and read whole — the admin form submits the entire option set
+/// and it replaces what was there, exactly like ProductSpec. A table would buy
+/// per-value addressing that nothing needs and cost a join on every product
+/// page.
+///
+/// A product with no rows here has no variants and behaves exactly as it did
+/// before variants existed. That is the case almost every existing row is in,
+/// and it must stay the cheap one.
+model ProductOption {
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  name     String
+  values   String[]
+  position Int      @default(0)
+
+  /// Two "Size" axes on one product is a data-entry mistake with no sensible
+  /// reading, and the selector would render two identical dropdowns.
+  @@unique([productId, name])
+  @@index([productId, position])
+}
+
+/// One buyable combination: the "Blue / M" of a shirt.
+///
+/// `optionValues` is aligned by index to the product's ProductOption rows in
+/// `position` order — ["Blue","M"] against options [Colour, Size]. Alignment by
+/// index is only safe because options and variants are always rewritten
+/// together in one transaction (`replaceVariants` in utils/variants.ts); no
+/// endpoint can edit one without the other, which is the invariant that makes
+/// the cheap representation correct.
+///
+/// Price and stock live here, not on Product, because the whole point is that
+/// they differ per combination. Product.price/Product.stock become rollups —
+/// see the comment on those columns.
+model ProductVariant {
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  /// Operator's own stock-keeping code. Optional because most small catalogues
+  /// do not have one, and unique per product rather than globally so two
+  /// products may both use "SM-BLUE" without a collision nobody can explain.
+  sku String?
+
+  /// Aligned to ProductOption.position — see the note above.
+  optionValues String[]
+
+  price    Decimal @db.Decimal(10, 2)
+  stock    Int
+  position Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orderItems OrderItem[]
+
+  @@unique([productId, sku])
+  @@index([productId, position])
+}
+
+model Review {
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 1-5, enforced by a CHECK constraint in the migration rather than trusted
+  // from the request body.
+  rating    Int
+  title     String   @default("")
+  comment   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // One review per person per product; posting again edits the existing one.
+  @@unique([productId, userId])
+  @@index([productId, createdAt])
 }
 
 model Order {
@@ -82,15 +421,97 @@ model Order {
   discount        Decimal @db.Decimal(10, 2)
   total           Decimal @db.Decimal(10, 2)
 
-  status    OrderStatus @default(Processing)
+  status    OrderStatus @default(PendingPayment)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
-  items OrderItem[]
+  // ---- payment ----
+  paymentStatus PaymentStatus @default(Pending)
+
+  /// Razorpay (prepaid) or COD. Every existing row predates COD and defaults
+  /// correctly. Read by the expiry sweep, which must not touch a COD order:
+  /// there is no payment window to expire, and cancelling one 30 minutes after
+  /// it was placed would silently delete good orders.
+  paymentMethod PaymentMethod @default(Razorpay)
+
+  // Razorpay's order id (order_XXXX) and, once captured, the payment id
+  // (pay_XXXX). Unique so a webhook redelivery or a replayed verify call can
+  // never attach the same payment to a second order.
+  razorpayOrderId   String? @unique
+  razorpayPaymentId String? @unique
+
+  // What Razorpay actually captured, in rupees. Reconciled against `total` when
+  // the payment lands; a mismatch is logged and the order is not marked Paid.
+  amountCharged Decimal? @db.Decimal(10, 2)
+
+  // createdAt is when checkout started; placedAt is when the money arrived.
+  placedAt DateTime?
+
+  // A PendingPayment order is holding stock. Past this instant the sweep in
+  // utils/expireOrders.ts cancels it and puts the units back.
+  paymentExpiresAt DateTime?
+
+  cancelledAt  DateTime?
+  cancelReason String?
+
+  /// ---- shipment ----
+  ///
+  /// `status = Shipped` records that a parcel left, and nothing else did — so
+  /// the shipping email could only ever say "it's on its way", which is the
+  /// message that generates the most "where is it?" replies. These three are
+  /// captured when an operator advances the order and are rendered in the
+  /// email and on the customer's order page.
+  ///
+  /// `trackingUrl` is stored rather than built from a carrier lookup table:
+  /// every carrier's URL shape changes on its own schedule, and a table of them
+  /// in this repo would be wrong within a year and wrong silently.
+  carrier        String?
+  trackingNumber String?
+  trackingUrl    String?
+  shippedAt      DateTime?
+
+  /// When fulfilment reached Delivered. `status` alone cannot answer "how long
+  /// ago", which is exactly what the review request needs — asking for a review
+  /// the same hour a parcel lands is asking before it has been opened.
+  deliveredAt DateTime?
+
+  /// Notification bookkeeping, and the only thing making those sweeps
+  /// idempotent. Both are "we have already said this once" flags rather than
+  /// schedules: the sweep re-runs every few minutes and must not re-send.
+  reviewRequestedAt   DateTime?
+  recoveryEmailSentAt DateTime?
+
+  // Recorded for support/reporting; the discount itself is re-derived from the
+  // Coupon table at checkout and never trusted from the client.
+  couponCode String?
+
+  // True while the order's items are debited from Product.stock. Set at
+  // checkout, cleared by whatever puts the stock back, so cancel/expire/delete
+  // can never double-restore.
+  stockReserved Boolean @default(false)
+
+  items   OrderItem[]
+  returns ReturnRequest[]
 
   @@index([userId])
   @@index([createdAt])
   @@index([status])
+  @@index([paymentStatus])
+  @@index([paymentExpiresAt])
+  // Every dashboard query in controllers/stats.ts filters on one of the two
+  // status columns *and* a createdAt range together (the PLACED and PAID
+  // filters). With only the single-column indexes above, Postgres picks one and
+  // filters the rest of the range by hand; these match the actual predicates.
+  @@index([status, createdAt])
+  @@index([paymentStatus, createdAt])
+  // How many times a coupon has been redeemed is counted from these rows
+  // rather than kept as a column on Coupon — see utils/coupons.ts.
+  @@index([couponCode, paymentStatus])
+  // The two notification sweeps: delivered orders not yet asked for a review,
+  // and cancelled ones not yet nudged. Both are "column IS NULL" scans over a
+  // status, which is the shape these serve.
+  @@index([status, deliveredAt, reviewRequestedAt])
+  @@index([status, recoveryEmailSentAt])
 }
 
 model OrderItem {
@@ -103,21 +524,164 @@ model OrderItem {
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
 
+  /// Which combination was bought, when the product has variants. Restrict for
+  /// the same reason as productId: order history must keep resolving.
+  ///
+  /// Nullable because a product without variants has none, and because every
+  /// order placed before variants existed has none either. Anything reading
+  /// this must treat null as "the product itself", not as missing data.
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
   // Snapshot of the product at purchase time. price is what was actually paid
   // and must never be re-read from Product.
-  name     String
-  photo    String
-  price    Decimal @db.Decimal(10, 2)
-  quantity Int
+  name         String
+  photo        String
+  /// "Blue / M" at the moment of purchase. A snapshot, like name and price:
+  /// renaming an option next season must not relabel what someone already
+  /// received. Empty string for an item with no variant.
+  variantLabel String  @default("")
+  price        Decimal @db.Decimal(10, 2)
+  quantity     Int
+
+  returnItems ReturnItem[]
 
   @@index([orderId])
   @@index([productId])
+  @@index([variantId])
 }
 
+/// A customer asking to send something back.
+///
+/// Scoped to specific OrderItems and quantities rather than to a whole order,
+/// because "one of the three shirts didn't fit" is the ordinary case and an
+/// all-or-nothing return forces support to do it by hand.
+///
+/// The refund is deliberately *not* automatic on approval: money moves at
+/// `Received`, when the goods are actually back. Approving is a promise;
+/// refunding is a payment, and the two are days apart in a real warehouse.
+model ReturnRequest {
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status ReturnStatus @default(Requested)
+  /// Chosen from a fixed list in the UI, stored as text so the list can grow
+  /// without a migration. Reporting groups on it; nothing branches on it.
+  reason String
+  note   String       @default("")
+
+  /// What was actually refunded, and Razorpay's id for it. Both null until the
+  /// refund succeeds — this pair is the record that it did, and `razorpayRefundId`
+  /// being unique is what stops a retried request refunding twice.
+  refundAmount     Decimal? @db.Decimal(10, 2)
+  razorpayRefundId String?  @unique
+
+  decidedAt    DateTime?
+  decidedById  String?
+  decisionNote String    @default("")
+
+  /// Set when the returned units go back into stock, in the same transaction as
+  /// the increment. Exactly the job `Order.stockReserved` does for checkout, and
+  /// for exactly the same reason: two operators pressing "received" must not
+  /// restock the same shirt twice.
+  restocked Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items ReturnItem[]
+
+  @@index([orderId])
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+/// One line of a return: this OrderItem, this many units.
+model ReturnItem {
+  id              String        @id @default(uuid())
+  returnRequestId String
+  request         ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  quantity Int
+
+  /// One line per item per request; asking for two of the same item twice in
+  /// one request is a client bug, and merging it silently hides the bug while
+  /// over-refunding.
+  @@unique([returnRequestId, orderItemId])
+  @@index([returnRequestId])
+}
+
+/// A discount code and the conditions under which it may be redeemed.
+///
+/// Every limit here is nullable and means "no limit" when null, so the rows
+/// that existed before this migration keep behaving exactly as they did — an
+/// unconditional, unlimited discount. That is the permissive default, so a
+/// campaign that needs a ceiling has to say so.
+///
+/// There is deliberately **no `redemptionCount` column**. How many times a code
+/// has been used is derived from Order.couponCode over paid orders
+/// (utils/coupons.ts), because a counter would have to be incremented and
+/// decremented by the same three racing callers that settle payment —
+/// verify, webhook and the expiry sweep — and any one of them getting it wrong
+/// silently over- or under-counts money. Orders are the record of what was
+/// actually redeemed; a counter is a second copy of that truth that can drift.
 model Coupon {
   id     String  @id @default(uuid())
   code   String  @unique
   amount Decimal @db.Decimal(10, 2)
+
+  /// Off switch. Suspends a code without deleting it, so a campaign can be
+  /// paused and the order history keeps pointing at a row that still exists.
+  isActive Boolean @default(true)
+
+  /// Past this instant the code is refused. Null never expires.
+  expiresAt DateTime?
+
+  /// Minimum cart subtotal (before tax and shipping) the code applies to.
+  minOrderValue Decimal? @db.Decimal(10, 2)
+
+  /// Total paid redemptions allowed across all customers. Null is unlimited.
+  maxRedemptions Int?
+
+  /// Paid redemptions allowed per customer. Null is unlimited.
+  perUserLimit Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([code, isActive])
+}
+
+/// Append-only record of everything an admin changed.
+///
+/// The app authenticates by bearer uid (see middlewares/auth.ts), so "who did
+/// this" is not recoverable from anywhere else once a row has been updated or
+/// deleted — the mutation leaves no trace of its actor. This is that trace, and
+/// it is the reason the console can answer "who cancelled that order".
+///
+/// Nothing here is a foreign key on purpose: the log has to survive the actor
+/// or the target being deleted, which is exactly the case you most want a
+/// record of. actorName/summary are denormalised snapshots for the same reason.
+model AdminAuditLog {
+  id        String   @id @default(uuid())
+  actorId   String
+  actorName String
+  /// dotted verb — "product.create", "order.cancel", "user.delete"
+  action    String
+  targetId  String?
+  /// one line of human-readable context, rendered as-is in the console
+  summary   String
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
 }
 
 // Was one document per user holding a productId array, which needed

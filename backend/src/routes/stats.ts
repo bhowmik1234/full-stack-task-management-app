@@ -1,24 +1,22 @@
 import express from "express";
-import { adminOnly } from "../middlewares/auth.js";
-import {
-  getBarCharts,
-  getDashboardStats,
-  getLineCharts,
-  getPieCharts,
-} from "../controllers/stats.js";
+import { requirePermission } from "../middlewares/auth.js";
+import { adminLimiter } from "../middlewares/rateLimit.js";
+import { getActivity, getAnalytics } from "../controllers/stats.js";
 
 const app = express.Router();
 
-// route - /api/v1/dashboard/stats
-app.get("/stats", adminOnly, getDashboardStats);
+// Everything under /dashboard is the admin console and nothing else, so the
+// admin cap is applied to the router rather than repeated per route — a new
+// endpoint added here is limited by default instead of by remembering to.
+app.use(adminLimiter);
 
-// // route - /api/v1/dashboard/pie
-app.get("/pie", adminOnly, getPieCharts);
+// route - /api/v1/dashboard/analytics?range=7d|30d|90d|12m
+// The console's single source of numbers. Replaces /stats, /pie, /bar and
+// /line, which answered overlapping questions over hardcoded 6/12-month
+// windows and could disagree with each other on the same screen.
+app.get("/analytics", requirePermission("analytics_read"), getAnalytics);
 
-// // route - /api/v1/dashboard/bar
-app.get("/bar", adminOnly, getBarCharts);
-
-// // route - /api/v1/dashboard/line
-app.get("/line", adminOnly, getLineCharts);
+// route - /api/v1/dashboard/activity
+app.get("/activity", requirePermission("activity_read"), getActivity);
 
 export default app;

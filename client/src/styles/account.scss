@@ -1,0 +1,669 @@
+@use "tokens" as *;
+@use "mixins" as *;
+@use "base" as *;
+
+// The signed-in account area: one shell (AccountLayout) with a section nav, and
+// the sections that render inside it — overview, addresses, reviews, settings.
+// Orders and the wishlist keep their own partials and render in the same slot.
+//
+// Replaces profile.scss, which styled the old single-page account view.
+
+.account {
+  @include flex(column, flex-start, stretch, 2rem);
+  max-width: $content-max;
+  margin-inline: auto;
+
+  &__identity {
+    @include flex(row, flex-start, center, 1.25rem);
+    padding-bottom: 1.75rem;
+    border-bottom: 1px solid $ink-500;
+
+    img,
+    .account__initial {
+      @include square(4.5rem);
+      flex-shrink: 0;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1px solid $ink-500;
+    }
+
+    .account__initial {
+      @include flex(row, center, center, 0);
+      background-color: $ink-600;
+      color: $text-strong;
+      font-family: $font-display;
+      font-size: 1.75rem;
+      font-weight: 600;
+    }
+
+    h1 {
+      font-size: clamp(1.35rem, 3vw, 1.75rem);
+    }
+
+    p {
+      color: $text-muted;
+      font-size: 0.9rem;
+      margin-top: 0.15rem;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  &__body {
+    display: grid;
+    grid-template-columns: 13rem minmax(0, 1fr);
+    gap: 2.5rem;
+    align-items: start;
+
+    @include upto($bp-lg) {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+  }
+
+  // Vertical rail on desktop; a horizontally scrolling strip below it. Six
+  // items fit in a strip, and collapsing the only navigation on the page into
+  // a disclosure would hide it behind a tap.
+  &__nav {
+    @include flex(column, flex-start, stretch, 0.25rem);
+    position: sticky;
+    top: calc($header-height + 1.5rem);
+
+    @include upto($bp-lg) {
+      position: static;
+      flex-direction: row;
+      gap: 0.5rem;
+      overflow-x: auto;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid $ink-500;
+      scrollbar-width: none;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
+    }
+  }
+
+  &__nav-item {
+    @include flex(row, flex-start, center, 0.7rem);
+    padding: 0.65rem 0.9rem;
+    border-radius: $radius;
+    color: $text-muted;
+    font-size: 0.9rem;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: background-color $transition, color $transition;
+
+    > svg {
+      flex-shrink: 0;
+      font-size: 1.05rem;
+    }
+
+    &:hover {
+      background-color: $ink-700;
+      color: $text-strong;
+    }
+
+    &.is-active {
+      background-color: $accent-soft;
+      color: $accent;
+    }
+  }
+
+  &__content {
+    min-width: 0;
+  }
+
+  &__error {
+    color: $danger;
+    font-size: 0.9rem;
+  }
+}
+
+// Pages that render inside the shell and need no wrapper of their own.
+.account-section {
+  min-width: 0;
+}
+
+// ------------------------------------------------------------- overview ----
+.account-overview {
+  @include flex(column, flex-start, stretch, 2rem);
+
+  h2 {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: $text-muted;
+    margin-bottom: 1rem;
+  }
+
+  // An unpaid checkout is holding stock and expires; it gets the one piece of
+  // colour on the page.
+  &__alert {
+    @include flex(row, space-between, center, 1rem);
+    flex-wrap: wrap;
+    padding: 1rem 1.25rem;
+    border-radius: $radius-lg;
+    background-color: rgba($info, 0.1);
+    border: 1px solid rgba($info, 0.3);
+
+    p {
+      color: $text-strong;
+      font-size: 0.9rem;
+    }
+  }
+
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 1rem;
+  }
+
+  &__stat {
+    @include flex(column, flex-start, flex-start, 0.25rem);
+    padding: 1.1rem 1.25rem;
+    background-color: $ink-700;
+    border: 1px solid $ink-500;
+    border-radius: $radius-lg;
+
+    span {
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: $text-muted;
+    }
+
+    strong {
+      font-family: $font-display;
+      font-size: 1.5rem;
+      color: $text-strong;
+    }
+  }
+
+  &__details {
+    border: 1px solid $ink-500;
+    border-radius: $radius-lg;
+    overflow: hidden;
+    background-color: $ink-700;
+
+    > div {
+      display: grid;
+      grid-template-columns: 12rem minmax(0, 1fr);
+      gap: 1rem;
+      padding: 0.9rem 1.25rem;
+      border-bottom: 1px solid rgba($ink-500, 0.6);
+      font-size: 0.9rem;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      @include upto($bp-sm) {
+        grid-template-columns: 1fr;
+        gap: 0.25rem;
+      }
+    }
+
+    dt {
+      color: $text-muted;
+    }
+
+    dd {
+      color: $text-strong;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  &__note {
+    margin-top: 0.85rem;
+    font-size: 0.8rem;
+    color: $text-faint;
+  }
+
+  &__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: 0.75rem;
+  }
+
+  &__card {
+    @include flex(row, flex-start, center, 1rem);
+    padding: 1rem 1.25rem;
+    background-color: $ink-700;
+    border: 1px solid $ink-500;
+    border-radius: $radius-lg;
+    color: $text;
+    transition: border-color $transition, transform $transition;
+
+    > svg {
+      flex-shrink: 0;
+      font-size: 1.1rem;
+      color: $accent;
+    }
+
+    strong {
+      display: block;
+      color: $text-strong;
+      font-size: 0.95rem;
+    }
+
+    span {
+      font-size: 0.82rem;
+      color: $text-muted;
+    }
+
+    &:hover {
+      border-color: $accent;
+      transform: translateX(2px);
+      color: $text;
+    }
+  }
+}
+
+// ------------------------------------------------------------ addresses ----
+.addresses {
+  &__list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    gap: 1rem;
+    list-style: none;
+  }
+
+  &__editor {
+    margin-bottom: 1.25rem;
+    grid-column: 1 / -1;
+
+    h3 {
+      font-size: 1rem;
+      margin-bottom: 1rem;
+    }
+  }
+
+  &__item {
+    @include flex(column, flex-start, stretch, 0.5rem);
+    font-size: 0.9rem;
+  }
+
+  &__item-head {
+    @include flex(row, flex-start, center, 0.6rem);
+
+    strong {
+      color: $text-strong;
+    }
+  }
+
+  &__name {
+    color: $text-strong;
+    font-weight: 500;
+  }
+
+  &__lines,
+  &__phone {
+    color: $text-muted;
+    line-height: 1.5;
+  }
+
+  &__actions {
+    @include flex(row, flex-start, center, 0.5rem);
+    flex-wrap: wrap;
+    margin-top: auto;
+    padding-top: 0.75rem;
+
+    .btn {
+      padding: 0.45rem 0.9rem;
+      font-size: 0.82rem;
+    }
+  }
+}
+
+.address-form {
+  @include flex(column, flex-start, stretch, 1rem);
+
+  &__row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 1rem;
+  }
+
+  textarea.input {
+    resize: vertical;
+  }
+
+  small {
+    font-size: 0.78rem;
+    color: $text-faint;
+  }
+
+  &__default {
+    @include flex(row, flex-start, center, 0.6rem);
+    font-size: 0.88rem;
+    color: $text-muted;
+    cursor: pointer;
+
+    input {
+      accent-color: $accent;
+      @include square(1rem);
+      cursor: pointer;
+    }
+  }
+
+  &__actions {
+    @include flex(row, flex-start, center, 0.75rem);
+  }
+}
+
+// -------------------------------------------------------------- reviews ----
+.my-reviews {
+  &__list {
+    @include flex(column, flex-start, stretch, 1rem);
+    list-style: none;
+  }
+
+  &__item {
+    display: grid;
+    grid-template-columns: 9rem minmax(0, 1fr);
+    gap: 1.25rem;
+
+    @include upto($bp-md) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__product {
+    @include flex(column, flex-start, stretch, 0.5rem);
+    color: $text;
+
+    img,
+    .image-fallback {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: contain;
+      border-radius: $radius;
+      background-color: $ink-600;
+    }
+
+    span {
+      font-size: 0.85rem;
+      color: $text-strong;
+      line-height: 1.35;
+    }
+  }
+
+  &__body {
+    @include flex(column, flex-start, stretch, 0.6rem);
+
+    h3 {
+      font-size: 1rem;
+    }
+
+    p {
+      color: $text-muted;
+      font-size: 0.9rem;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  &__meta {
+    @include flex(row, flex-start, center, 0.75rem);
+    flex-wrap: wrap;
+
+    time {
+      font-size: 0.8rem;
+      color: $text-faint;
+    }
+  }
+
+  &__stars {
+    @include flex(row, flex-start, center, 0.1rem);
+    color: $ink-400;
+    font-size: 0.9rem;
+
+    .is-filled {
+      color: $gold;
+      fill: $gold;
+    }
+  }
+
+  &__actions {
+    @include flex(row, flex-start, center, 0.5rem);
+    flex-wrap: wrap;
+    margin-top: 0.25rem;
+
+    .btn {
+      padding: 0.45rem 0.9rem;
+      font-size: 0.82rem;
+    }
+  }
+}
+
+// ------------------------------------------------------------- settings ----
+.settings {
+  @include flex(column, flex-start, stretch, 1.5rem);
+
+  h2 {
+    font-size: 1.05rem;
+    margin-bottom: 0.5rem;
+  }
+
+  &__hint {
+    font-size: 0.85rem;
+    color: $text-muted;
+    margin-bottom: 1.25rem;
+    max-width: 46ch;
+  }
+
+  &__form {
+    @include flex(column, flex-start, stretch, 1rem);
+    max-width: 30rem;
+
+    .btn {
+      align-self: flex-start;
+    }
+  }
+
+  // Checkbox and its explanation on one row. `align-items: start` rather than
+  // center because the label wraps to two or three lines and a centred box
+  // floats away from the first word it belongs to.
+  &__check {
+    @include flex(row, flex-start, start, 0.75rem);
+    max-width: 46ch;
+    cursor: pointer;
+    font-size: 0.9rem;
+    line-height: 1.5;
+
+    > input {
+      flex-shrink: 0;
+      margin-top: 0.15rem;
+      width: 1rem;
+      height: 1rem;
+      accent-color: $primary-color;
+      cursor: pointer;
+    }
+
+    &:has(> input:disabled) {
+      opacity: 0.6;
+      cursor: default;
+    }
+  }
+
+  &__row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: 1rem;
+  }
+
+  &__methods {
+    @include flex(column, flex-start, stretch, 0.5rem);
+    list-style: none;
+
+    > li {
+      @include flex(row, flex-start, center, 1rem);
+      padding: 0.9rem 1.1rem;
+      background-color: $ink-600;
+      border: 1px solid $ink-500;
+      border-radius: $radius;
+
+      > svg {
+        flex-shrink: 0;
+        font-size: 1.2rem;
+      }
+
+      > div {
+        flex: 1;
+        min-width: 0;
+      }
+
+      strong {
+        display: block;
+        font-size: 0.92rem;
+        color: $text-strong;
+      }
+
+      span {
+        font-size: 0.82rem;
+        color: $text-muted;
+        overflow-wrap: anywhere;
+      }
+
+      .btn {
+        padding: 0.45rem 0.9rem;
+        font-size: 0.82rem;
+      }
+    }
+  }
+
+  &__link-phone {
+    @include flex(column, flex-start, stretch, 0.75rem);
+    max-width: 22rem;
+    margin-top: 1rem;
+
+    .btn {
+      align-self: flex-start;
+    }
+  }
+
+  // Irreversible, and styled so it does not read as one more form.
+  &__danger {
+    border-color: rgba($danger, 0.35);
+
+    h2 {
+      color: $danger;
+    }
+
+    .field {
+      max-width: 16rem;
+      margin-bottom: 1rem;
+    }
+  }
+}
+
+// -------------------------------------------------------------- invoice ----
+// Hidden on screen; the print stylesheet at the bottom of this file is what
+// reveals it, and hides everything else.
+.order-invoice {
+  display: none;
+}
+
+.order-details__actions {
+  @include flex(column, flex-start, stretch, 0.6rem);
+}
+
+@media print {
+  // Nothing on screen belongs on a receipt — not the header, not the sidebar,
+  // not the buttons that produced this page.
+  body * {
+    visibility: hidden;
+  }
+
+  .order-invoice,
+  .order-invoice * {
+    visibility: visible;
+  }
+
+  .order-invoice {
+    display: block;
+    position: absolute;
+    inset: 0;
+    padding: 2rem;
+    color: #000;
+    background: #fff;
+    font-size: 12pt;
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #000;
+      padding-bottom: 0.75rem;
+      margin-bottom: 1.5rem;
+
+      h2 {
+        color: #000;
+        font-size: 20pt;
+      }
+
+      div {
+        text-align: right;
+        font-size: 10pt;
+      }
+    }
+
+    h3 {
+      color: #000;
+      font-size: 10pt;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.35rem;
+    }
+
+    address {
+      font-style: normal;
+      font-size: 10pt;
+      line-height: 1.5;
+    }
+
+    &__parties {
+      margin-bottom: 1.5rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10pt;
+
+      th,
+      td {
+        padding: 0.5rem 0.4rem;
+        text-align: left;
+        border-bottom: 1px solid #999;
+      }
+
+      th {
+        border-bottom: 1px solid #000;
+        text-transform: uppercase;
+        font-size: 9pt;
+      }
+
+      td:not(:first-child),
+      th:not(:first-child) {
+        text-align: right;
+      }
+
+      tfoot td {
+        border-bottom: none;
+      }
+    }
+
+    &__total td {
+      font-weight: 700;
+      border-top: 1px solid #000;
+      padding-top: 0.6rem;
+    }
+
+    &__foot {
+      margin-top: 2rem;
+      font-size: 9pt;
+      color: #444;
+    }
+  }
+}

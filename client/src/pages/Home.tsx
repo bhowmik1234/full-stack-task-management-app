@@ -1,42 +1,23 @@
 import { useRef } from 'react';
+import { Link } from 'react-router-dom';
+import { FaTruck, FaLock, FaUndoAlt, FaHeadset } from 'react-icons/fa';
 import ProductCart from "../components/ProductCart";
-import { useLatestProductsQuery } from "../redux/api/productAPI";
+import { useCategoriesQuery, useLatestProductsQuery } from "../redux/api/productAPI";
 import toast from "react-hot-toast";
-import { Skeleton } from "../components/Loader";
-import { CartItem } from "../types/types";
-import { useDispatch } from "react-redux";
+import { ProductSkeleton } from "../components/Loader";
+import ErrorState from "../components/ErrorState";
+import { CartItem, Product, StorefrontConfig } from "../types/types";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "../redux/store";
+import { formatINR } from "../utils/features";
 import { addToCart } from "../redux/reducer/cartReducer";
 import Slider from "../components/Slider";
+import Seo from "../components/Seo";
+import { storeName } from "../utils/store";
 
-const brands: Record<string, string>[] = [
-  {
-    logo: "https://www.citypng.com/public/uploads/preview/hd-white-nike-logo-transparent-png-701751694777170hrodp6c2ek.png?v=2024070814",
-    name: "Nike",
-  },
-  {
-    logo: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQAT4BdeCYQ5yZCLfiua53FH69Q-61Jt1ys3A&s",
-    name: "Adidas",
-  },
-  {
-    logo: "https://www.citypng.com/public/uploads/preview/zara-white-logo-download-png-701751694774624x2rs5hk3ea.png",
-    name: "Zara",
-  },
-  {
-    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/H%26M-Logo.svg/2560px-H%26M-Logo.svg.png",
-    name: "H&M",
-  },
-  {
-    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/UNIQLO_logo.svg/2560px-UNIQLO_logo.svg.png",
-    name: "Uniqlo",
-  },
-  {
-    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/75/Levi%27s_logo.svg/2560px-Levi%27s_logo.svg.png",
-    name: "Levi's",
-  },
-];
-
-
-
+// Wordmarks only. The logo images these used to point at are hotlinked from
+// third-party hosts and several of them 404, which rendered as broken images.
+const brands: string[] = ["Nike", "Adidas", "Zara", "H&M", "Uniqlo", "Levi's"];
 
 const images: string[] = [
   "https://images.pexels.com/photos/205421/pexels-photo-205421.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2",
@@ -45,9 +26,130 @@ const images: string[] = [
   "https://images-eu.ssl-images-amazon.com/images/G/31/img22/Wireless/Meghana/iQOO/Z9LiteBau/V2/D147682074_WLD_BAU_iQOO-Z9-Lite-5G_DesktopTall_Hero_3000x1200V2._CB569330392_.jpg",
 ];
 
+// Decorative tiles: the name and blurb carry the meaning, the artwork is
+// atmosphere. It used to be six hotlinked Google Images thumbnails
+// (encrypted-tbn0.gstatic.com/images?q=tbn:...), which is both fragile and not
+// ours to hotlink — those are other sites' images served from Google's cache,
+// and the URLs are search-result handles that expire. They had already started
+// 404ing one by one.
+//
+// A gradient needs no network, cannot rot, and cannot 404. `tone` indexes the
+// palette in styles/home.scss so the colour lives with the rest of the theme
+// rather than inline here.
+const collections = [
+  { name: "Summer Vibes", blurb: "Light layers for warm days", tone: 1 },
+  { name: "Urban Chic", blurb: "City-ready essentials", tone: 2 },
+  { name: "Cozy Autumn", blurb: "Soft knits and warm tones", tone: 3 },
+  { name: "Winter Warmth", blurb: "Built for the cold", tone: 4 },
+  { name: "Spring Bloom", blurb: "Fresh colours, new season", tone: 5 },
+  { name: "Elegant Evening", blurb: "For the occasions that count", tone: 6 },
+];
+
+/**
+ * The four promises under the hero.
+ *
+ * A function of the store's configuration rather than a module-level constant,
+ * because two of them are numbers the store actually enforces — the free
+ * delivery threshold and the return window. Hardcoded here they were a fourth
+ * copy of figures that live in the cart, the product page and the server, and
+ * the first one a shopper reads.
+ */
+const servicesFor = (config: StorefrontConfig) => [
+  {
+    icon: <FaTruck />,
+    title: "Free delivery",
+    copy: `On every order above ${formatINR(config.freeShippingThreshold)}`,
+  },
+  {
+    icon: <FaUndoAlt />,
+    title: "Easy returns",
+    copy: `${config.returnWindowDays}-day returns on most items`,
+  },
+  { icon: <FaLock />, title: "Secure payments", copy: "Protected by Razorpay" },
+  { icon: <FaHeadset />, title: "Here to help", copy: "Support seven days a week" },
+];
+
+// One rail owns one ref. The previous version shared a single ref across three
+// rails, so the arrows on the lower two scrolled the top rail instead.
+const ProductRail = ({
+  products,
+  isLoading,
+  isError,
+  onRetry,
+  handler,
+}: {
+  products?: Product[];
+  isLoading: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
+  handler: (cartItem: CartItem) => string | undefined;
+}) => {
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  const scroll = (direction: "left" | "right") => {
+    const track = trackRef.current;
+    if (!track) return;
+    const amount = track.clientWidth * 0.85;
+    track.scrollBy({ left: direction === "left" ? -amount : amount, behavior: "smooth" });
+  };
+
+  if (isLoading) return <ProductSkeleton length={5} />;
+  // The home page's rails are the whole shop front. Returning null on a failed
+  // load left the headings ("New arrivals", "Featured brands") sitting above
+  // nothing, which reads as a store with no stock rather than a request that
+  // failed — and the only hint otherwise was a toast that had already gone.
+  if (isError)
+    return (
+      <ErrorState
+        title="Couldn't load these products"
+        message="The catalogue didn't load. Everything else on this page still works."
+        onRetry={onRetry}
+      />
+    );
+  if (!products?.length) return null;
+
+  return (
+    <div className="product-rail">
+      <button
+        className="product-rail__arrow product-rail__arrow--left"
+        onClick={() => scroll("left")}
+        aria-label="Scroll left"
+      >
+        &#10094;
+      </button>
+      <div className="product-rail__track" ref={trackRef}>
+        {products.map((i) => (
+          <ProductCart
+            key={i._id}
+            productId={i._id}
+            name={i.name}
+            price={i.price}
+            stock={i.stock}
+            category={i.category}
+            ratings={i.ratings}
+            numOfReviews={i.numOfReviews}
+            hasVariants={i.hasVariants}
+            handler={handler}
+            photo={i.photo}
+          />
+        ))}
+      </div>
+      <button
+        className="product-rail__arrow product-rail__arrow--right"
+        onClick={() => scroll("right")}
+        aria-label="Scroll right"
+      >
+        &#10095;
+      </button>
+    </div>
+  );
+};
+
 export const Home = () => {
   const dispatch = useDispatch();
-  const productSliderRef = useRef<HTMLDivElement>(null);
+  const config = useSelector((state: RootState) => state.cartReducer.config);
+  const services = servicesFor(config);
+
   const addToCartHandler = (cartItem: CartItem) => {
     if (cartItem.stock < 1) {
       return toast.error("out of stock");
@@ -56,145 +158,128 @@ export const Home = () => {
     toast.success("added to cart");
   }
 
-  const { data, isLoading, isError } = useLatestProductsQuery("");
+  const { data, isLoading, isError, refetch } = useLatestProductsQuery("");
+  const { data: categoryData } = useCategoriesQuery("");
 
-  if (isError) toast.error("cannot fetch the product.");
+  // Was a bare `if (isError) toast.error(...)` here in the render body — a side
+  // effect during render, so it re-fired on every re-render of the page. The
+  // rails say it themselves now, in place and with a retry, so there is nothing
+  // left for a toast to add.
 
-  const scrollProducts = (direction: 'left' | 'right') => {
-    if (productSliderRef.current) {
-      const { current } = productSliderRef;
-      const scrollAmount = direction === 'left' ? -current.offsetWidth : current.offsetWidth;
-      current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-    }
-  };
+  const latest = data?.products;
+  // Same catalogue, other end first — the page used to render the identical
+  // list three times under three different headings.
+  const trending = latest ? [...latest].reverse() : undefined;
+
   return (
-    <div className="home">
-      <div className="items">
-        <ul>
-          <li>Home</li>
-          <li>Category</li>
-          <li>Mens</li>
-          <li>Womes</li>
-          <li>Jwellery</li>
-          <li>Offer</li>
-        </ul>
-      </div>
-      <section>
+    <div className="home page">
+      {/* The one page whose title was already right, but it had no og:* tags —
+          so every link to the shop front previewed as a bare URL. */}
+      <Seo
+        title={`${storeName()} — Online Shopping`}
+        description={`Shop fashion, tech and beauty at ${storeName()}. Fast delivery, secure checkout and easy returns.`}
+      />
+
+      <section className="home__hero">
         <Slider images={images} />
+        <div className="home__hero-copy">
+          <div>
+            <h1>Everything you need, delivered fast</h1>
+            <p>New arrivals every week across fashion, tech and beauty.</p>
+          </div>
+          <Link className="btn" to="/search">Shop now</Link>
+        </div>
       </section>
 
-      <main>
+      <section className="home__services">
+        {services.map((service) => (
+          <div key={service.title}>
+            {service.icon}
+            <div>
+              <strong>{service.title}</strong>
+              <span>{service.copy}</span>
+            </div>
+          </div>
+        ))}
+      </section>
+
+      {!!categoryData?.categories.length && (
+        <section>
+          <div className="section-head">
+            <div>
+              <h2>Shop by category</h2>
+              <p>Browse the full catalogue</p>
+            </div>
+            <Link to="/search">View all</Link>
+          </div>
+          <div className="home__categories">
+            {categoryData.categories.map((category) => (
+              <Link key={category} to={`/search?category=${encodeURIComponent(category)}`}>
+                {category}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section>
+        <div className="section-head">
+          <div>
+            <h2>New arrivals</h2>
+            <p>The latest additions to the store</p>
+          </div>
+          <Link to="/search">View all</Link>
+        </div>
+        <ProductRail products={latest} isLoading={isLoading} isError={isError} onRetry={refetch} handler={addToCartHandler} />
+      </section>
+
+      <section>
+        <div className="section-head">
+          <div>
+            <h2>Featured brands</h2>
+          </div>
+        </div>
         <div className="brands">
-          {brands.map((brand, index) => (
-            <div key={index} className="brand">
-              <img src={brand.logo} alt={brand.name} className="logo" />
-              <span className="name">{brand.name}</span>
+          {brands.map((brand) => (
+            <div key={brand} className="brand">
+              <span className="name">{brand}</span>
             </div>
           ))}
         </div>
-        {/*  latest products */}
-        <div className="product-slider-container">
-          <button className="slider-button left" onClick={() => scrollProducts('left')}>&lt;</button>
-            <h1>Latest Products</h1>
-          <div className="product-slider" ref={productSliderRef}>
-            {isLoading ? (
-              <Skeleton width="80vw" />
-            ) : (
-              data?.products.map((i) => (
-                <ProductCart
-                  key={i._id}
-                  productId={i._id}
-                  // description={""}
-                  name={i.name}
-                  price={i.price}
-                  stock={i.stock}
-                  handler={addToCartHandler}
-                  photo={i.photo}
-                />
-              ))
-            )}
+      </section>
+
+      <section>
+        <div className="section-head">
+          <div>
+            <h2>Trending now</h2>
+            <p>What other shoppers are looking at</p>
           </div>
-          <button className="slider-button right" onClick={() => scrollProducts('right')}>&gt;</button>
+          <Link to="/search">View all</Link>
         </div>
+        <ProductRail products={trending} isLoading={isLoading} isError={isError} onRetry={refetch} handler={addToCartHandler} />
+      </section>
 
-        {/* Trends */}
-        <div className="product-slider-container">
-          <button className="slider-button left" onClick={() => scrollProducts('left')}>&lt;</button>
-            <h1>Offers</h1>
-          <div className="product-slider" ref={productSliderRef}>
-            {isLoading ? (
-              <Skeleton width="80vw" />
-            ) : (
-              data?.products.map((i) => (
-                <ProductCart
-                  key={i._id}
-                  productId={i._id}
-                  // description={""}
-                  name={i.name}
-                  price={i.price}
-                  stock={i.stock}
-                  handler={addToCartHandler}
-                  photo={i.photo}
-                />
-              ))
-            )}
+      <section>
+        <div className="section-head">
+          <div>
+            <h2>Shop the collections</h2>
           </div>
-          <button className="slider-button right" onClick={() => scrollProducts('right')}>&gt;</button>
         </div>
-
-        {/* offer of the day */}
-        <div className="product-slider-container">
-          <button className="slider-button left" onClick={() => scrollProducts('left')}>&lt;</button>
-            <h1>Latest Products</h1>
-          <div className="product-slider" ref={productSliderRef}>
-            {isLoading ? (
-              <Skeleton width="80vw" />
-            ) : (
-              data?.products.map((i) => (
-                <ProductCart
-                  key={i._id}
-                  productId={i._id}
-                  // description={""}
-                  name={i.name}
-                  price={i.price}
-                  stock={i.stock}
-                  handler={addToCartHandler}
-                  photo={i.photo}
-                />
-              ))
-            )}
-          </div>
-          <button className="slider-button right" onClick={() => scrollProducts('right')}>&gt;</button>
+        <div className="collection">
+          {collections.map((item) => (
+            <Link
+              key={item.name}
+              className={`collection-item collection-item--${item.tone}`}
+              to={`/search?q=${encodeURIComponent(item.name)}`}
+            >
+              <div className="item-name">
+                {item.name}
+                <span>{item.blurb}</span>
+              </div>
+            </Link>
+          ))}
         </div>
-
-      </main>
-
-      <div className='collection'>
-        <div className='collection-item'>
-          <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSgBe_hpfvNOHo15lP7jWgQcyNSWVi273MIdA&s" alt="Collection Item 1" />
-          <div className='item-name'>Summer Vibes</div>
-        </div>
-        <div className='collection-item'>
-          <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSaZ5YJ3deLDkjqIp1GVo4bGfopqcqhgv2B0A&s" />
-          <div className='item-name'>Urban Chic</div>
-        </div>
-        <div className='collection-item'>
-          <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQEuunyH0QBMTXmXufpLj_D4RlPeZoSl091PA&s" alt="Collection Item 3" />
-          <div className='item-name'>Cozy Autumn</div>
-        </div>
-        <div className='collection-item'>
-          <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQM8Wn44pnGl2oIjQsZ9-T1zPALQBvgUHLvyw&s" alt="Collection Item 4" />
-          <div className='item-name'>Winter Warmth</div>
-        </div>
-        <div className='collection-item'>
-          <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTJMD0I_d1_FtM9oSCHEj80C5yFlW_6hehF3A&s" alt="Collection Item 5" />
-          <div className='item-name'>Spring Bloom</div>
-        </div>
-        <div className='collection-item'>
-          <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQcTHvDGdTo_yFqIIlh-Qn0fL0xk1u_Tc0mCA&s" alt="Collection Item 6" />
-          <div className='item-name'>Elegant Evening</div>
-        </div>
-      </div>
+      </section>
     </div>
   )
 }

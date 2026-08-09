@@ -1,0 +1,311 @@
+@use "tokens" as *;
+@use "mixins" as *;
+@use "base" as *;
+
+// Site header: sticky bar with logo, search, account/cart actions, plus a
+// secondary category rail. Below $bp-md the search collapses behind a toggle
+// so the bar never overflows on a phone.
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: rgba($ink-800, 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid $ink-500;
+
+  &__inner {
+    max-width: $page-max;
+    margin: 0 auto;
+    height: $header-height;
+    padding: 0 clamp(1rem, 3vw, 2rem);
+    @include flex(row, space-between, center, 1.5rem);
+  }
+
+  &__logo {
+    flex-shrink: 0;
+    @include flex(row, flex-start, center, 0.5rem);
+
+    img {
+      height: 2.75rem;
+      width: auto;
+      object-fit: contain;
+    }
+  }
+
+  // ------------------------------------------------------------- search ---
+  // The control itself is components/SearchBox.tsx, which wraps its input in a
+  // <form> and hangs a suggestion panel below it — so these reach through the
+  // form rather than styling direct children. The dropdown's own styling lives
+  // in _searchbox.scss; this partial only places the box in the bar.
+  &__search {
+    flex: 1;
+    max-width: 34rem;
+    position: relative;
+
+    > form {
+      @include flex(row, flex-start, center, 0);
+      position: relative;
+    }
+
+    // Scoped to the form: the suggestion panel below has its own icons, and a
+    // bare descendant selector would absolutely-position every one of them.
+    > form > svg {
+      position: absolute;
+      left: 1rem;
+      color: $text-faint;
+      pointer-events: none;
+      font-size: 0.9rem;
+    }
+
+    > form > input {
+      @include control;
+      background-color: $ink-600;
+      padding-left: 2.6rem;
+      padding-right: 6rem;
+      border-radius: $radius-pill;
+    }
+
+    > form > button {
+      position: absolute;
+      right: 0.3rem;
+      @extend %btn-base;
+      padding: 0.5rem 1.1rem;
+      font-size: 0.85rem;
+      background-color: $accent;
+      color: $paper;
+      border-radius: $radius-pill;
+
+      &:hover {
+        background-color: $accent-hover;
+      }
+    }
+
+    @include upto($bp-md) {
+      display: none;
+
+      &--open {
+        display: block;
+        position: absolute;
+        top: $header-height;
+        left: 0;
+        right: 0;
+        max-width: none;
+        padding: 0.75rem 1rem;
+        background-color: $ink-800;
+        border-bottom: 1px solid $ink-500;
+
+        > form > svg {
+          left: 2rem;
+        }
+
+        > form > button {
+          right: 1.3rem;
+        }
+      }
+    }
+  }
+
+  // ------------------------------------------------------------ actions ---
+  &__actions {
+    @include flex(row, flex-end, center, 0.35rem);
+    flex-shrink: 0;
+  }
+
+  &__action {
+    position: relative;
+    @include flex(row, center, center, 0);
+    @include square(2.75rem);
+    border: none;
+    background: transparent;
+    border-radius: $radius;
+    color: $text;
+    font-size: 1.15rem;
+    cursor: pointer;
+    transition: background-color $transition, color $transition;
+
+    &:hover {
+      background-color: $ink-600;
+      color: $accent;
+    }
+
+    &--active {
+      color: $accent;
+    }
+
+    > img {
+      @include square(2rem);
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1px solid $ink-500;
+    }
+  }
+
+  // Count bubble on the cart / wishlist icons.
+  &__count {
+    position: absolute;
+    top: 0.3rem;
+    right: 0.25rem;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    padding: 0 0.3rem;
+    border-radius: $radius-pill;
+    background-color: $accent;
+    color: $paper;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1.15rem;
+    text-align: center;
+    border: 2px solid $ink-800;
+    box-sizing: content-box;
+  }
+
+  &__search-toggle {
+    display: none;
+
+    @include upto($bp-md) {
+      display: flex;
+    }
+  }
+
+  // ---------------------------------------------------------- user menu ---
+  &__menu {
+    position: absolute;
+    top: calc(#{$header-height} - 0.5rem);
+    right: clamp(1rem, 3vw, 2rem);
+    z-index: 110;
+    width: 15rem;
+    padding: 0.5rem;
+    background-color: $ink-700;
+    border: 1px solid $ink-500;
+    border-radius: $radius-lg;
+    box-shadow: $shadow-lg;
+    animation: fade-up 0.18s $ease;
+    @include flex(column, flex-start, stretch, 0.15rem);
+
+    &-header {
+      padding: 0.65rem 0.85rem 0.85rem;
+      border-bottom: 1px solid $ink-500;
+      margin-bottom: 0.35rem;
+
+      strong {
+        display: block;
+        color: $text-strong;
+        font-size: 0.95rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      span {
+        font-size: 0.8rem;
+        color: $text-muted;
+      }
+    }
+
+    &-item {
+      @include flex(row, flex-start, center, 0.75rem);
+      width: 100%;
+      padding: 0.65rem 0.85rem;
+      border: none;
+      background: transparent;
+      border-radius: $radius;
+      color: $text;
+      font-size: 0.9rem;
+      text-align: left;
+      cursor: pointer;
+      transition: background-color $transition, color $transition;
+
+      svg {
+        font-size: 1rem;
+        color: $text-muted;
+        transition: color $transition;
+      }
+
+      &:hover {
+        background-color: $ink-600;
+        color: $text-strong;
+
+        svg {
+          color: $accent;
+        }
+      }
+
+      &--danger {
+        margin-top: 0.35rem;
+        border-top: 1px solid $ink-500;
+        border-radius: 0 0 $radius $radius;
+        color: $danger;
+
+        svg {
+          color: $danger;
+        }
+
+        &:hover {
+          background-color: rgba($danger, 0.12);
+          color: $danger;
+
+          svg {
+            color: $danger;
+          }
+        }
+      }
+    }
+  }
+
+  // Click-away layer behind the open menu.
+  &__scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 105;
+    border: none;
+    background: transparent;
+    cursor: default;
+  }
+
+  // ------------------------------------------------------ category rail ---
+  &__nav {
+    border-top: 1px solid $ink-500;
+
+    ul {
+      max-width: $page-max;
+      margin: 0 auto;
+      padding: 0 clamp(1rem, 3vw, 2rem);
+      list-style: none;
+      @include flex(row, flex-start, center, 0.25rem);
+      overflow-x: auto;
+      scrollbar-width: none;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
+    }
+
+    a {
+      display: block;
+      padding: 0.7rem 0.9rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: $text-muted;
+      white-space: nowrap;
+      border-bottom: 2px solid transparent;
+      transition: color $transition, border-color $transition;
+
+      &:hover {
+        color: $text-strong;
+        border-bottom-color: $accent;
+      }
+
+      // "You are here". The underline is the same one hover draws, so the
+      // active section reads as the one already hovered rather than as a
+      // separate visual language — and colour is not the only cue, which
+      // matters because the rail scrolls horizontally and the marker is often
+      // the only thing saying which end of it you are at.
+      &.is-active {
+        color: $text-strong;
+        border-bottom-color: $accent;
+        font-weight: 600;
+      }
+    }
+  }
+}

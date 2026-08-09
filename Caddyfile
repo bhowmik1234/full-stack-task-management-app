@@ -1,0 +1,70 @@
+# TLS termination for both sites.
+#
+# Caddy rather than certbot+cron: it obtains and renews certificates on its own,
+# for every hostname named below, with no scheduled job to notice has stopped
+# running. An expired certificate is a whole-store outage, and the usual cause
+# is a renewal timer nobody was watching.
+#
+# It terminates TLS and forwards to the `web` container, which is the nginx that
+# already knows how to split the two sites by hostname and proxy /api. Caddy
+# deliberately does not learn any of that — it passes Host through, and nginx's
+# existing server_name matching does the routing exactly as it does over plain
+# HTTP locally. One place decides how requests are routed.
+{
+	# Let's Encrypt sends expiry and problem notices here. Set ACME_EMAIL in the
+	# root .env; without it Caddy registers anonymously and you get no warning
+	# when issuance starts failing.
+	email {$ACME_EMAIL}
+}
+
+# Shared by both sites. Anything that must hold for the console as well as the
+# shop goes here, so the two cannot drift apart.
+(edge) {
+	# HSTS belongs at the TLS edge, not in nginx. nginx serves plain HTTP inside
+	# the compose network and is also what a local `docker compose up` uses with
+	# no certificates at all — sending HSTS from there would teach a browser to
+	# force HTTPS against a development stack that has none, and the only cure is
+	# clearing the browser's HSTS store by hand.
+	#
+	# No `preload`. Preloading is a one-way door: it is baked into browser
+	# binaries and removal takes months, so it must be a deliberate decision made
+	# after HTTPS has been stable for a while, not a default inherited from a
+	# config file. Add it yourself once you are sure.
+	#
+	# `includeSubDomains` covers app.admin.<domain>, which is served here over
+	# HTTPS too. Drop it if you host any *other* subdomain over plain HTTP — it
+	# would make that host unreachable.
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+	# nginx already compresses what it serves and proxies; this covers Caddy
+	# answering anything itself and costs nothing when the upstream has done it.
+	encode zstd gzip
+
+	# Caddy sets X-Forwarded-For/-Proto/-Host on its own; setting them again here
+	# is redundant and `caddy validate` says so. What matters is downstream:
+	# nginx *appends* to X-Forwarded-For, so the backend sees "<client>, <caddy>"
+	# and must be told two proxies sit in front of it rather than one — see
+	# TRUST_PROXY in docker-compose.prod.yml. Left at one, every visitor shares a
+	# rate-limit bucket.
+	reverse_proxy web:80
+}
+
+# ---- storefront ----
+{$SITE_DOMAIN} {
+	import edge
+}
+
+# www -> apex, so the site has one canonical origin. The sitemap, the canonical
+# link tags and the og: tags all name VITE_SITE_URL; serving the same pages on a
+# second hostname splits them in search results.
+www.{$SITE_DOMAIN} {
+	redir https://{$SITE_DOMAIN}{uri} permanent
+}
+
+# ---- admin console ----
+# Matches the hostname nginx's second server block expects. This must also be a
+# DNS record pointing here, and must be in Firebase's authorized domains, or
+# Google sign-in on the console fails with auth/unauthorized-domain.
+app.admin.{$SITE_DOMAIN} {
+	import edge
+}

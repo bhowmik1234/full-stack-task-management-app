@@ -1,11 +1,29 @@
-/* WishList.module.scss */
+@use "tokens" as *;
+@use "mixins" as *;
+@use "base" as *;
+@use "product-card" as *;
+
+// Wishlist page — the same card grid as search, with its own header.
+
+.wishlist-page {
+  @include flex(column, flex-start, stretch, 1.5rem);
+
+  > header {
+    @include flex(row, space-between, flex-end, 1rem);
+    flex-wrap: wrap;
+
+    h2 {
+      font-size: 1.5rem;
+    }
+
+    p {
+      font-size: 0.9rem;
+      color: $text-muted;
+      margin-top: 0.25rem;
+    }
+  }
+}
 
 .wishlist-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    padding: 5rem;
-    background-color: $secondary-color;
-    height: 100vh;
-  }
-  
+  @include product-grid;
+}

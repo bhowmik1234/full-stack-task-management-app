@@ -1,0 +1,142 @@
+@use "tokens" as *;
+@use "mixins" as *;
+@use "base" as *;
+
+// The search type-ahead panel (components/SearchBox.tsx). The input itself is
+// positioned by _header.scss, which places the box in the bar; everything here
+// is the dropdown that hangs below it.
+
+.searchbox {
+  position: relative;
+
+  &__panel {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    right: 0;
+    // Above the sticky header's own stacking context and the category rail.
+    z-index: 60;
+    background-color: $ink-700;
+    border: 1px solid $ink-500;
+    border-radius: $radius-lg;
+    box-shadow: $shadow-lg;
+    overflow: hidden;
+    // A long list must not run off the bottom of a short window.
+    max-height: min(28rem, 70vh);
+    overflow-y: auto;
+    animation: fade-up 0.12s $ease;
+  }
+
+  &__head {
+    @include flex(row, space-between, center, 1rem);
+    padding: 0.65rem 1rem 0.35rem;
+
+    span {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: $text-faint;
+    }
+
+    button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 0.78rem;
+      color: $text-muted;
+
+      &:hover {
+        color: $accent;
+      }
+    }
+  }
+
+  ul {
+    list-style: none;
+  }
+
+  li {
+    @include flex(row, flex-start, center, 0.85rem);
+    padding: 0.6rem 1rem;
+    cursor: pointer;
+    // Highlight follows both the pointer and the arrow keys, so hover and
+    // keyboard selection are the same visual state — two different-looking
+    // "selected" rows at once is the classic combobox bug.
+    background-color: transparent;
+    transition: background-color $transition;
+
+    &.is-active {
+      background-color: $accent-soft;
+    }
+
+    img,
+    .image-fallback {
+      @include square(2.4rem);
+      flex-shrink: 0;
+      object-fit: contain;
+      border-radius: $radius-sm;
+      background-color: $ink-600;
+    }
+
+    // The category and recent-search rows use an icon where a product shows a
+    // thumbnail; boxing it to the same width keeps every label left-aligned.
+    > svg {
+      @include square(2.4rem);
+      flex-shrink: 0;
+      padding: 0.6rem;
+      border-radius: $radius-sm;
+      background-color: $ink-600;
+      color: $text-muted;
+      font-size: 1rem;
+    }
+  }
+
+  &__name {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.9rem;
+    color: $text;
+    // One line — a wrapped product name pushes the rest of the list around as
+    // the shopper types.
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    strong {
+      color: $text-strong;
+    }
+  }
+
+  &__all {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: none;
+    border-top: 1px solid $ink-500;
+    background-color: $ink-600;
+    color: $accent;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+      background-color: $ink-500;
+    }
+  }
+}
+
+// Announced by screen readers, never drawn. `display: none` would remove it
+// from the accessibility tree along with the visual layout, which defeats the
+// point — this keeps it rendered but occupying nothing.
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

@@ -1,202 +1,287 @@
+@use "tokens" as *;
+@use "mixins" as *;
+@use "base" as *;
+
+// Cart page: line items beside a sticky order summary.
 
 .cart {
-    padding: 2rem 4rem;
-    background-color: $secondary-color;
-    @include flex(row, unset, unset, 4rem);
-    height: calc(100vh - 4rem);
-  
-    > main {
-      width: 70%;
-      color: $text-color;
-      > h1 {
-        @include heading(2px);
-        text-align: center;
-      }
-      svg{
-        color: $second-color;
-        &:hover{
-          color: $text-color;
-        }
-      }
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22rem;
+  align-items: start;
+  gap: 2rem;
 
-      overflow-y: auto;
-      &::-webkit-scrollbar {
-        display: none;
-      }
-    }
-
-    .checkout-summary {
-      background-color: $primary-color;
-      color: $text-color;
-      border-radius: 1rem;
-      width: 30%;
-      padding: 2rem;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      @include flex(column, flex-start, stretch, 1.5rem);
-    
-      h2 {
-        font-size: 1.5rem;
-        font-weight: 600;
-        margin-bottom: 1rem;
-        color: $accent-color;
-      }
-    
-      &__details {
-        @include flex(column, flex-start, stretch, 0.75rem);
-      }
-    
-      &__row {
-        @include flex(row, space-between, center);
-        font-size: 1rem;
-    
-        &:not(:last-child) {
-          padding-bottom: 0.75rem;
-          border-bottom: 1px solid rgba($text-color, 0.1);
-        }
-      }
-    
-      &__discount {
-        color: $accent-color;
-      }
-    
-      &__total {
-        font-size: 1.2rem;
-        font-weight: 600;
-        margin-top: 0.5rem;
-      }
-    
-      &__coupon {
-        @include flex(row, space-between, center);
-        gap: 0.5rem;
-    
-        input {
-          flex-grow: 1;
-          padding: 0.75rem;
-          border: 1px solid rgba($text-color, 0.2);
-          background-color: $primary-color;
-          outline: none;
-          border-radius: 5px;
-          color: $text-color;
-          transition: border-color 0.3s ease;
-    
-          &:focus {
-            border-color: $accent-color;
-          }
-        }
-    
-        button {
-          padding: 0.75rem 1rem;
-          background-color: $accent-color;
-          color: white;
-          border: none;
-          border-radius: 5px;
-          cursor: pointer;
-          transition: background-color 0.3s ease;
-    
-          &:hover {
-            background-color: darken($accent-color, 10%);
-          }
-        }
-      }
-    
-      &__coupon-status {
-        @include flex(row, flex-start, center, 0.5rem);
-        font-size: 0.9rem;
-    
-        &.green {
-          color: #28a745;
-        }
-    
-        &.red {
-          color: #dc3545;
-        }
-    
-        code {
-          font-weight: 600;
-          background-color: rgba($accent-color, 0.1);
-          padding: 0.2rem 0.4rem;
-          border-radius: 3px;
-        }
-      }
-    
-      &__checkout-btn {
-        background-color: $accent-color;
-        padding: 1rem;
-        text-decoration: none;
-        color: white;
-        font-weight: 600;
-        @include flex(row, center, center);
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        border-radius: 5px;
-        transition: background-color 0.3s ease;
-    
-        &:hover {
-          background-color: darken($accent-color, 10%);
-        }
-      }
-    }
-    
-    @media (max-width: 768px) {
-      .checkout-summary {
-        width: 100%;
-      }
-    }
+  @include upto($bp-lg) {
+    grid-template-columns: 1fr;
   }
-  
-  .cart-item {
-    border: 1px solid black;
-    border-radius: 1rem;
-    background-color: $cart-color;
-    padding: 0.2rem 1rem;
-    @include flex(row, flex-start, center, 3rem);
-    > img {
-      @include square(10rem);
-      object-fit: contain;
-    }
-  
-    > article {
-      @include flex(column, center, flex-start, 0.25rem);
-      a {
-        font-size: 1.2rem;
-        color: $text-color;
-        &:hover {
-          color: $second-color;
-        }
-      }
-  
+
+  > main {
+    min-width: 0;
+    @include flex(column, flex-start, stretch, 1rem);
+
+    > h1 {
+      font-size: 1.5rem;
+      margin-bottom: 0.25rem;
+
       span {
-        font-weight: 700;
-      }
-    }
-  
-    > div {
-      margin-left: auto;
-      @include flex;
-      button {
-        border: none;
-        @include square(2rem);
-        border-radius: 5px;
-        @include flex;
-        cursor: pointer;
-        font-size: 1.2rem;
-        background-color: $second-color;
-        &:hover {
-          background-color: white;
-          color: $second-color;
-        }
-      }
-    }
-  
-    > button {
-      border: none;
-      background-color: transparent;
-      @include flex;
-      cursor: pointer;
-      font-size: 1.2rem;
-      &:hover {
-        color: red;
+        font-size: 0.95rem;
+        font-weight: 400;
+        color: $text-muted;
+        margin-left: 0.5rem;
       }
     }
   }
-  
+
+  // ------------------------------------------------------------ summary ---
+  .checkout-summary {
+    position: sticky;
+    top: calc(#{$header-height} + 1rem);
+    background-color: $ink-700;
+    border: 1px solid $ink-500;
+    border-radius: $radius-lg;
+    padding: 1.5rem;
+    color: $text;
+    @include flex(column, flex-start, stretch, 1.25rem);
+
+    @include upto($bp-lg) {
+      position: static;
+    }
+
+    h2 {
+      font-size: 1.1rem;
+      color: $text-strong;
+    }
+
+    &__details {
+      @include flex(column, flex-start, stretch, 0.85rem);
+    }
+
+    &__row {
+      @include flex(row, space-between, center, 1rem);
+      font-size: 0.9rem;
+      color: $text-muted;
+
+      span:last-child {
+        color: $text;
+        font-variant-numeric: tabular-nums;
+      }
+    }
+
+    &__discount span:last-child {
+      color: $success;
+    }
+
+    &__total {
+      margin-top: 0.25rem;
+      padding-top: 1rem;
+      border-top: 1px solid $ink-500;
+      font-size: 1.05rem;
+      font-weight: 600;
+
+      span,
+      span:last-child {
+        color: $text-strong;
+      }
+
+      span:last-child {
+        font-family: $font-display;
+        font-size: 1.25rem;
+      }
+    }
+
+    &__coupon {
+      @include flex(row, space-between, center, 0.5rem);
+
+      input {
+        @include control;
+        min-width: 0;
+        flex: 1;
+        text-transform: uppercase;
+
+        &::placeholder {
+          text-transform: none;
+        }
+      }
+
+      button {
+        @extend %btn-base;
+        background-color: $ink-600;
+        color: $text-strong;
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
+
+        &:hover:not(:disabled) {
+          background-color: $accent;
+          color: $paper;
+        }
+      }
+    }
+
+    &__coupon-status {
+      @include flex(row, flex-start, center, 0.4rem);
+      font-size: 0.85rem;
+      margin-top: -0.5rem;
+
+      &.green {
+        color: $success;
+      }
+
+      &.red {
+        color: $danger;
+      }
+
+      code {
+        font-weight: 600;
+        background-color: $ink-600;
+        padding: 0.1rem 0.4rem;
+        border-radius: $radius-sm;
+      }
+    }
+
+    &__checkout-btn {
+      @extend %btn-base;
+      background-color: $accent;
+      color: $paper;
+      padding: 0.9rem 1.5rem;
+      letter-spacing: 0.02em;
+
+      &:hover {
+        background-color: $accent-hover;
+        color: $paper;
+        box-shadow: $shadow-accent;
+      }
+    }
+
+    &__note {
+      font-size: 0.78rem;
+      color: $text-faint;
+      text-align: center;
+    }
+  }
+}
+
+// --------------------------------------------------------------- line item --
+.cart-item {
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1rem;
+  background-color: $ink-700;
+  border: 1px solid $ink-500;
+  border-radius: $radius-lg;
+  transition: border-color $transition;
+
+  &:hover {
+    border-color: $ink-400;
+  }
+
+  > img {
+    @include square(6rem);
+    object-fit: cover;
+    border-radius: $radius;
+    background-color: $ink-600;
+  }
+
+  > article {
+    min-width: 0;
+    @include flex(column, center, flex-start, 0.3rem);
+
+    a {
+      font-size: 0.98rem;
+      font-weight: 500;
+      color: $text-strong;
+
+      &:hover {
+        color: $accent;
+      }
+    }
+
+    .unit-price {
+      font-size: 0.85rem;
+      color: $text-muted;
+    }
+
+    .line-total {
+      font-family: $font-display;
+      font-weight: 600;
+      color: $text-strong;
+    }
+  }
+
+  // Quantity stepper
+  > div {
+    @include flex(row, center, center, 0);
+    border: 1px solid $ink-500;
+    border-radius: $radius-pill;
+    overflow: hidden;
+    background-color: $ink-600;
+
+    button {
+      @include flex(row, center, center, 0);
+      @include square(2.25rem);
+      border: none;
+      background: transparent;
+      color: $text;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: background-color $transition, color $transition;
+
+      &:hover:not(:disabled) {
+        background-color: $accent;
+        color: $paper;
+      }
+
+      &:disabled {
+        color: $text-faint;
+        cursor: not-allowed;
+      }
+    }
+
+    p {
+      min-width: 2rem;
+      text-align: center;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: $text-strong;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  // Remove
+  > button {
+    @include flex(row, center, center, 0);
+    @include square(2.25rem);
+    border: none;
+    border-radius: $radius;
+    background: transparent;
+    color: $text-faint;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background-color $transition, color $transition;
+
+    &:hover {
+      background-color: rgba($danger, 0.12);
+      color: $danger;
+    }
+  }
+
+  @include upto($bp-md) {
+    grid-template-columns: 5rem minmax(0, 1fr) auto;
+    gap: 0.85rem;
+
+    > img {
+      @include square(5rem);
+    }
+
+    // The stepper drops onto its own row under the name so nothing squeezes.
+    > div {
+      grid-column: 2 / 3;
+    }
+
+    > button {
+      grid-row: 1 / 2;
+      grid-column: 3 / 4;
+      align-self: start;
+    }
+  }
+}
